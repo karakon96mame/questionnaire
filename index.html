@@ -169,6 +169,25 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
   .card{padding:var(--space-5)}
   .gender-row{grid-template-columns:1fr 1fr}
 }
+
+/* ── Visit type / revisit lookup ── */
+.visit-start-container{min-height:calc(100dvh - 96px);display:flex;align-items:center;justify-content:center}
+.visit-start-container .card{width:100%;margin-bottom:0}
+.visit-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-4);margin-top:var(--space-6)}
+.visit-choice-btn{display:flex;flex-direction:column;gap:var(--space-2);align-items:flex-start;text-align:left;padding:var(--space-6);border:1.5px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-bg);transition:all 180ms ease}
+.visit-choice-btn:hover{border-color:var(--color-primary);background:var(--color-primary-light);transform:translateY(-1px)}
+.visit-choice-title{font-size:var(--text-lg);font-weight:700;color:var(--color-primary)}
+.visit-choice-desc{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.6}
+.lookup-status{font-size:var(--text-sm);font-weight:700;margin-top:var(--space-3);min-height:1.6em;color:var(--color-text-muted)}
+.lookup-status.error{color:var(--color-error)}
+.lookup-status.success{color:var(--color-success)}
+.patient-confirm-list{display:grid;gap:var(--space-3);margin-top:var(--space-4)}
+.patient-confirm-row{display:grid;grid-template-columns:120px 1fr;gap:var(--space-3);padding:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-bg);font-size:var(--text-sm)}
+.patient-confirm-key{color:var(--color-text-muted);font-weight:700}
+.patient-confirm-val{color:var(--color-text);font-weight:600}
+.revisit-note{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4)}
+@media(max-width:600px){.visit-start-container{min-height:calc(100dvh - 80px);align-items:center}.visit-choice-grid{grid-template-columns:1fr}.patient-confirm-row{grid-template-columns:1fr;gap:var(--space-1)}}
+
 </style>
 </head>
 <body>
@@ -192,13 +211,69 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 
 <main class="main-container">
   <!-- Progress -->
-  <div class="progress-bar">
+  <div class="progress-bar" id="progressBar" style="display:none">
     <div class="progress-steps" id="progressSteps"></div>
     <div class="progress-label" id="progressLabel"></div>
   </div>
 
+
+  <!-- =========== VISIT TYPE =========== -->
+  <div class="step-page active" id="stepVisitType">
+    <div class="visit-start-container">
+      <div class="card">
+        <h1 class="card-title">問診票の種類を選択してください</h1>
+        <p class="card-subtitle">初めての方は初診、以前にご来院されたことがある方は再診を選択してください。</p>
+        <div class="visit-choice-grid">
+          <button class="visit-choice-btn" type="button" onclick="startFirstVisit()">
+            <span class="visit-choice-title">初診</span>
+            <span class="visit-choice-desc">基本情報の入力から、通常の問診票を開始します。</span>
+          </button>
+          <button class="visit-choice-btn" type="button" onclick="startRevisit()">
+            <span class="visit-choice-title">再診</span>
+            <span class="visit-choice-desc">電話番号または生年月日から前回の情報を読み込みます。</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========== REVISIT SEARCH =========== -->
+  <div class="step-page" id="stepRevisitSearch">
+    <div class="card">
+      <h1 class="card-title">再診の方の確認</h1>
+      <p class="card-subtitle">電話番号、または生年月日を入力して前回の問診票を検索します。</p>
+      <div class="field">
+        <label class="field-label" for="revisitTel">電話番号</label>
+        <input class="input-text" type="tel" id="revisitTel" placeholder="例：090-1234-5678">
+      </div>
+      <div class="field">
+        <label class="field-label" for="revisitBirth">生年月日</label>
+        <input class="input-text" type="text" id="revisitBirth" placeholder="例：1980-01-01 または 19800101" inputmode="numeric">
+        <div class="field-hint">電話番号・生年月日のどちらか一方で検索できます。両方入れるとより確実です。</div>
+      </div>
+      <div class="lookup-status" id="revisitLookupStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-secondary" type="button" onclick="backToVisitType()">← 戻る</button>
+      <button class="btn-primary" type="button" id="revisitSearchButton" onclick="searchRevisitPatient()">検索する　→</button>
+    </div>
+  </div>
+
+  <!-- =========== REVISIT CONFIRM =========== -->
+  <div class="step-page" id="stepRevisitConfirm">
+    <div class="card">
+      <h1 class="card-title">登録情報の確認</h1>
+      <p class="card-subtitle">読み込んだ患者情報に間違いがなければ、確認ボタンを押してください。</p>
+      <div class="patient-confirm-list" id="revisitPatientSummary"></div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-secondary" type="button" onclick="showRevisitSearch()">← 検索に戻る</button>
+      <button class="btn-primary" type="button" onclick="confirmRevisitPatient()">確認して次へ　→</button>
+    </div>
+  </div>
+
   <!-- =========== STEP 1: 基本情報 =========== -->
-  <div class="step-page active" id="step1">
+  <div class="step-page" id="step1">
     <div class="card">
       <h1 class="card-title">基本情報</h1>
       <p class="card-subtitle">お名前や生年月日など基本的な情報を教えてください。</p>
@@ -293,6 +368,10 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
       <p class="card-subtitle">選択された部位と年齢・性別から、よく見られる症状や病気を示します。当てはまるものがあればチェックしてください。</p>
       <div id="ageSexBadge"></div>
       <div id="diseaseBlocks"></div>
+      <div id="revisitOtherConcernWrap" style="display:none;margin-top:var(--space-5)">
+        <label class="field-label" for="revisitOtherConcern">その他に気になるところ</label>
+        <textarea class="input-text" id="revisitOtherConcern" rows="3" placeholder="前回から変わったこと、ほかに気になる症状などがあればご記入ください"></textarea>
+      </div>
     </div>
     <div class="nav-row">
       <button class="btn-secondary" onclick="goBack(3)">← 戻る</button>
@@ -474,7 +553,10 @@ const RED_FLAG_KEYWORDS = ['麻痺','脱臼','骨折','激しい','激痛','突�
 // ==============================
 // 状態管理
 // ==============================
-let currentStep = 1;
+let currentStep = 0;
+let visitType = '';
+let revisitRecord = null;
+let pendingDiseaseChecked = null;
 let selectedGender = '';
 let selectedBodyParts = []; // [{name, rank}] max 5
 let symptomData = {}; // {partName: {onset, situation, cause, quality, vasNow, vasOnset, change, pattern, free}}
@@ -694,6 +776,8 @@ function mergeSystemicDiseases(grp){
 function buildDiseaseBlocks(){
   const container=document.getElementById('diseaseBlocks');
   container.innerHTML='';
+  const otherConcernWrap=document.getElementById('revisitOtherConcernWrap');
+  if(otherConcernWrap) otherConcernWrap.style.display = visitType === '再診' ? 'block' : 'none';
   const badge=document.getElementById('ageSexBadge');
   const grp=getAgeSexGroup();
   const primaryGrp=Array.isArray(grp)?grp[0]:grp;
@@ -728,6 +812,20 @@ function buildDiseaseBlocks(){
     }
   });
 
+  if(pendingDiseaseChecked){
+    applyDiseasePrefill(pendingDiseaseChecked);
+    pendingDiseaseChecked=null;
+  }
+
+}
+
+function applyDiseasePrefill(prefill){
+  diseaseChecked = JSON.parse(JSON.stringify(prefill || {}));
+  document.querySelectorAll('input[data-part][data-disease]').forEach(function(input){
+    const part=input.getAttribute('data-part');
+    const disease=input.getAttribute('data-disease');
+    input.checked = Array.isArray(diseaseChecked[part]) && diseaseChecked[part].includes(disease);
+  });
 }
 
 function buildDiagnosisBox(p){
@@ -942,6 +1040,8 @@ function updateVAS(part,key,valId,val){
 // 進捗バー
 // ==============================
 function updateProgress(step){
+  const progressBar=document.getElementById('progressBar');
+  if(progressBar) progressBar.style.display = step > 0 ? 'block' : 'none';
   const steps=document.getElementById('progressSteps');
   const label=document.getElementById('progressLabel');
   steps.innerHTML='';
@@ -997,6 +1097,8 @@ function goNext(from){
     formData.hormoneTherapy=hormoneTherapy;
     formData.tel=document.getElementById('tel').value.trim();
     formData.age=calcAge();
+    formData.visitType=visitType || '初診';
+    formData.previousSubmissionId=revisitRecord && revisitRecord.submissionId ? revisitRecord.submissionId : '';
   }
   const next=from+1;
   if(next===3) buildDiseaseBlocks();
@@ -1026,6 +1128,8 @@ function showConfirm(){
     ? 'その他：'+referralOther
     : referralValue;
   formData.freeText=document.getElementById('freeText').value.trim();
+  const revisitOtherConcern=document.getElementById('revisitOtherConcern');
+  formData.revisitOtherConcern = revisitOtherConcern ? revisitOtherConcern.value.trim() : '';
   formData.diseaseOther='';
 
   const container=document.getElementById('confirmContent');
@@ -1066,6 +1170,7 @@ function showConfirm(){
       dRows.push([p.name,val,checked.some(d=>hasRedFlagInDisease(d,p.name))]);
     }
   });
+  if(formData.revisitOtherConcern) dRows.push(['その他に気になるところ',formData.revisitOtherConcern,false]);
   if(formData.diseaseOther) dRows.push(['その他',formData.diseaseOther,false]);
   if(dRows.length) container.appendChild(buildConfirmSection('チェックされた考えられる症状',dRows.map(r=>[r[0],r[1]])));
 
@@ -1133,6 +1238,180 @@ function backFromConfirm(){
   showStep(5);
 }
 
+function backToVisitType(){
+  visitType='';
+  revisitRecord=null;
+  document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('stepVisitType').classList.add('active');
+  updateProgress(0);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function startFirstVisit(){
+  visitType='初診';
+  revisitRecord=null;
+  showStep(1);
+}
+
+function startRevisit(){
+  visitType='再診';
+  showRevisitSearch();
+}
+
+function showRevisitSearch(){
+  document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('stepRevisitSearch').classList.add('active');
+  updateProgress(0);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function setLookupStatus(message,type){
+  const el=document.getElementById('revisitLookupStatus');
+  if(!el) return;
+  el.textContent=message||'';
+  el.className='lookup-status'+(type?' '+type:'');
+}
+
+function searchRevisitPatient(){
+  const tel=document.getElementById('revisitTel').value.trim();
+  const birthdate=document.getElementById('revisitBirth').value.trim();
+  if(!tel && !birthdate){
+    setLookupStatus('電話番号または生年月日を入力してください。','error');
+    return;
+  }
+  const button=document.getElementById('revisitSearchButton');
+  button.disabled=true;
+  button.textContent='検索中…';
+  setLookupStatus('スプレッドシートを検索しています。','');
+
+  loadJsonp(GOOGLE_APPS_SCRIPT_URL, {
+    action:'searchPatient',
+    tel:tel,
+    birthdate:birthdate
+  }).then(function(data){
+    if(!data || !data.ok || !data.patient){
+      revisitRecord=null;
+      setLookupStatus((data && data.message) || '該当する患者情報が見つかりませんでした。','error');
+      return;
+    }
+    revisitRecord=data.patient;
+    renderRevisitPatientSummary(revisitRecord);
+    document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('stepRevisitConfirm').classList.add('active');
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(function(error){
+    console.error(error);
+    setLookupStatus('検索できませんでした。通信状況を確認して、もう一度お試しください。','error');
+  }).finally(function(){
+    button.disabled=false;
+    button.textContent='検索する　→';
+  });
+}
+
+function loadJsonp(url,params){
+  return new Promise(function(resolve,reject){
+    const callbackName='monshinLookupCallback_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+    const script=document.createElement('script');
+    const query=new URLSearchParams(params||{});
+    query.set('callback',callbackName);
+    query.set('v',Date.now());
+    const timer=setTimeout(function(){
+      cleanup();
+      reject(new Error('timeout'));
+    },15000);
+    function cleanup(){
+      clearTimeout(timer);
+      if(script.parentNode) script.parentNode.removeChild(script);
+      try{delete window[callbackName];}catch(e){window[callbackName]=undefined;}
+    }
+    window[callbackName]=function(data){
+      cleanup();
+      resolve(data);
+    };
+    script.onerror=function(){
+      cleanup();
+      reject(new Error('script load error'));
+    };
+    script.src=url+'?'+query.toString();
+    document.body.appendChild(script);
+  });
+}
+
+function renderRevisitPatientSummary(patient){
+  const f=(patient && patient.formData) || {};
+  const rows=[
+    ['お名前',f.name||''],
+    ['ふりがな',f.kana||''],
+    ['生年月日',formatBirthDisplayFromFormData(f)],
+    ['性別',f.gender||''],
+    ['電話番号',f.tel||''],
+    ['前回受付日時',patient.receivedAt||patient.submittedAt||''],
+    ['前回の部位',(patient.selectedBodyParts||[]).map(function(p){return p.rank+'. '+(p.name||'');}).join(' / ') || '']
+  ];
+  const container=document.getElementById('revisitPatientSummary');
+  container.innerHTML=rows.map(function(row){
+    return '<div class="patient-confirm-row"><span class="patient-confirm-key">'+escapeHtml(row[0])+'</span><span class="patient-confirm-val">'+escapeHtml(row[1]||'未登録')+'</span></div>';
+  }).join('');
+}
+
+function confirmRevisitPatient(){
+  if(!revisitRecord || !revisitRecord.formData) return;
+  applyRevisitRecord(revisitRecord);
+  buildDiseaseBlocks();
+  showStep(3);
+}
+
+function applyRevisitRecord(patient){
+  const f=patient.formData || {};
+  formData=JSON.parse(JSON.stringify(f));
+  formData.visitType='再診';
+  formData.previousSubmissionId=patient.submissionId || '';
+  setBasicFieldsFromFormData(f);
+  selectedBodyParts=JSON.parse(JSON.stringify(patient.selectedBodyParts || []))
+    .filter(function(p){return p && p.name;})
+    .slice(0,5)
+    .map(function(p,i){p.rank=i+1;return p;});
+  symptomData=JSON.parse(JSON.stringify(patient.symptomData || {}));
+  pendingDiseaseChecked=JSON.parse(JSON.stringify(patient.diseaseChecked || {}));
+  renderBodyGrid();
+  renderChips();
+}
+
+function setBasicFieldsFromFormData(f){
+  document.getElementById('name').value=f.name||'';
+  document.getElementById('kana').value=f.kana||'';
+  document.getElementById('bd-era').value=f.era||'W';
+  document.getElementById('bd-year').value=f.bdYear||f.bdWestern||'';
+  document.getElementById('bd-month').value=f.bdMonth||'';
+  document.getElementById('bd-day').value=f.bdDay||'';
+  computedBirthYear=Number(f.bdWestern)||0;
+  convertBirthYear();
+  selectedGender=(f.gender||'').replace(/^その他：.*/,'その他');
+  document.querySelectorAll('.gender-btn').forEach(function(btn){
+    btn.classList.toggle('selected',btn.dataset.gender===selectedGender);
+  });
+  if(selectedGender==='その他'){
+    document.getElementById('genderOtherWrap').style.display='block';
+    document.getElementById('genderOther').value=(f.gender||'').replace(/^その他：/,'');
+  }
+  hormoneTherapy=!!f.hormoneTherapy;
+  document.getElementById('hormoneTherapy').checked=hormoneTherapy;
+  document.getElementById('tel').value=f.tel||'';
+  updatePregnancyVisibility();
+}
+
+function formatBirthDisplayFromFormData(f){
+  const eraLabel={S:'昭和',H:'平成',R:'令和',W:'西暦'}[f.era]||'';
+  if(f.era==='W') return '西暦 '+(f.bdWestern||f.bdYear||'')+'年 '+(f.bdMonth||'')+'月 '+(f.bdDay||'')+'日';
+  return eraLabel+(f.bdYear||'')+'年（西暦'+(f.bdWestern||'')+'年） '+(f.bdMonth||'')+'月 '+(f.bdDay||'')+'日';
+}
+
+function escapeHtml(value){
+  return String(value==null?'':value).replace(/[&<>'"]/g,function(char){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char];
+  });
+}
+
 // ==============================
 // 最終送信
 // ==============================
@@ -1151,6 +1430,8 @@ function buildSubmissionPayload(){
   return {
     submissionId:createSubmissionId(),
     submittedAt:new Date().toISOString(),
+    visitType:visitType || formData.visitType || '初診',
+    previousSubmissionId:formData.previousSubmissionId || '',
     formData:JSON.parse(JSON.stringify(formData)),
     selectedBodyParts:JSON.parse(JSON.stringify(selectedBodyParts)),
     diseaseChecked:JSON.parse(JSON.stringify(diseaseChecked)),
@@ -1244,6 +1525,7 @@ function downloadExcel(){
   ws1Data.push(['妊娠の可能性',formData.pregnant||'']);
   ws1Data.push(['来院きっかけ',formData.referral||'']);
   ws1Data.push(['その他コメント',formData.freeText||'']);
+  ws1Data.push(['その他に気になるところ',formData.revisitOtherConcern||'']);
 
   const ws1=XLSX.utils.aoa_to_sheet(ws1Data);
   ws1['!cols']=[{wch:32},{wch:50}];
