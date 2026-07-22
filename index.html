@@ -241,15 +241,19 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
   <div class="step-page" id="stepRevisitSearch">
     <div class="card">
       <h1 class="card-title">再診の方の確認</h1>
-      <p class="card-subtitle">電話番号、または生年月日を入力して前回の問診票を検索します。</p>
+      <p class="card-subtitle">氏名・電話番号・生年月日のいずれかを入力して前回の問診票を検索します。</p>
       <div class="field">
         <label class="field-label" for="revisitTel">電話番号</label>
         <input class="input-text" type="tel" id="revisitTel" placeholder="例：090-1234-5678">
       </div>
       <div class="field">
+        <label class="field-label" for="revisitName">氏名</label>
+        <input class="input-text" type="text" id="revisitName" placeholder="例：山田 花子">
+      </div>
+      <div class="field">
         <label class="field-label" for="revisitBirth">生年月日</label>
         <input class="input-text" type="text" id="revisitBirth" placeholder="例：1980-01-01 または 19800101" inputmode="numeric">
-        <div class="field-hint">電話番号・生年月日のどちらか一方で検索できます。両方入れるとより確実です。</div>
+        <div class="field-hint">氏名・電話番号・生年月日のいずれか一つで検索できます。複数入れるとより確実です。</div>
       </div>
       <div class="lookup-status" id="revisitLookupStatus" role="status" aria-live="polite"></div>
     </div>
@@ -453,7 +457,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
       <p class="card-subtitle">以下の内容でよろしいでしょうか？</p>
       <div id="confirmContent"></div>
       <div class="red-flag-banner" id="redFlagBanner">
-        ⚠ スタッフは確認忘れがないようにしましょう。施術前に確認をおねがいします。
+        スタッフは確認忘れがないようにしましょう。施術前に確認をおねがいします。
       </div>
     </div>
     <div class="nav-row">
@@ -863,7 +867,7 @@ function buildDiseaseBox(p, diseases, redFlags){
     const isRF=redFlags.some(rf=>d.includes(rf.split('（')[0]));
     return `<label class="check-item ${isRF?'rf-item':''}">
       <input type="checkbox" data-part="${p.name}" data-disease="${d}" onchange="updateDiseaseCheck('${p.name}','${d}',this.checked)">
-      ${isRF?'<span style="color:#dc2626;font-weight:700">⚠ </span>':''}${d}
+      ${d}
     </label>`;
   }).join('');
   div.innerHTML=`
@@ -931,7 +935,7 @@ function buildSymptomBlocks(){
     const rankChar='①②③④⑤'[p.rank-1];
     if(!symptomData[p.name]) symptomData[p.name]={vasNow:5,vasOnset:7};
     const d=symptomData[p.name];
-    const id=`sym_${p.name.replace(/[^a-z0-9]/gi,'_')}`;
+    const id=`sym_${p.rank}_${p.name.replace(/[^a-z0-9]/gi,'_')}`;
 
     const div=document.createElement('div');
     div.className='section-card';
@@ -970,7 +974,7 @@ function buildSymptomBlocks(){
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">4</span>発症した直後の辛さ（痛み）の程度（VAS）</div>
         <div class="vas-wrap">
           <div class="vas-value" id="${id}_vasOnset_val">${d.vasOnset}/10</div>
-          <input type="range" min="0" max="10" value="${d.vasOnset}" oninput="updateVAS('${p.name}','vasOnset','${id}_vasOnset_val',this.value)">
+          <input type="range" min="0" max="10" value="${d.vasOnset}" oninput="updateVAS('${p.name}','vasOnset','${id}_vasOnset_val',this.value,this)">
           <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5<br>かなり辛い（痛い）</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）</span></div>
         </div>
 
@@ -988,7 +992,7 @@ function buildSymptomBlocks(){
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">6</span>今の辛さ・痛みの強さ（VAS）</div>
         <div class="vas-wrap">
           <div class="vas-value" id="${id}_vasNow_val">${d.vasNow}/10</div>
-          <input type="range" min="0" max="10" value="${d.vasNow}" oninput="updateVAS('${p.name}','vasNow','${id}_vasNow_val',this.value)">
+          <input type="range" min="0" max="10" value="${d.vasNow}" oninput="updateVAS('${p.name}','vasNow','${id}_vasNow_val',this.value,this)">
           <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5<br>かなり辛い（痛い）</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）が続いている</span></div>
         </div>
 
@@ -1031,9 +1035,16 @@ function toggleSym(part,key,val,checked){
   if(checked){if(!symptomData[part][key].includes(val)) symptomData[part][key].push(val);}
   else{symptomData[part][key]=symptomData[part][key].filter(v=>v!==val);}
 }
-function updateVAS(part,key,valId,val){
-  setSym(part,key,parseInt(val));
-  document.getElementById(valId).textContent=val+'/10';
+function updateVAS(part,key,valId,val,source){
+  setSym(part,key,parseInt(val,10));
+  const target=valId?document.getElementById(valId):null;
+  if(target){
+    target.textContent=val+'/10';
+    return;
+  }
+  const wrap=source?source.closest('.vas-wrap'):null;
+  const valueEl=wrap?wrap.querySelector('.vas-value'):null;
+  if(valueEl) valueEl.textContent=val+'/10';
 }
 
 // ==============================
@@ -1165,7 +1176,7 @@ function showConfirm(){
       if(rfChecked.length) hasRedFlag=true;
       const val=checked.map(d=>{
         const isRF=hasRedFlagInDisease(d,p.name);
-        return isRF?`⚠ ${d}（レッドフラッグ）`:d;
+        return isRF?`${d}（レッドフラッグ）`:d;
       }).join('、');
       dRows.push([p.name,val,checked.some(d=>hasRedFlagInDisease(d,p.name))]);
     }
@@ -1273,10 +1284,11 @@ function setLookupStatus(message,type){
 }
 
 function searchRevisitPatient(){
+  const name=document.getElementById('revisitName').value.trim();
   const tel=document.getElementById('revisitTel').value.trim();
   const birthdate=document.getElementById('revisitBirth').value.trim();
-  if(!tel && !birthdate){
-    setLookupStatus('電話番号または生年月日を入力してください。','error');
+  if(!name && !tel && !birthdate){
+    setLookupStatus('氏名・電話番号・生年月日のいずれかを入力してください。','error');
     return;
   }
   const button=document.getElementById('revisitSearchButton');
@@ -1286,6 +1298,7 @@ function searchRevisitPatient(){
 
   loadJsonp(GOOGLE_APPS_SCRIPT_URL, {
     action:'searchPatient',
+    name:name,
     tel:tel,
     birthdate:birthdate
   }).then(function(data){
@@ -1532,7 +1545,7 @@ function downloadExcel(){
   XLSX.utils.book_append_sheet(wb,ws1,'問診票');
 
   // === シート2: 考えられる傷病 ===
-  const ws2Data=[['部位（優先順位）','考えられる傷病','レッドフラッグ（⚠ 要確認）']];
+  const ws2Data=[['部位（優先順位）','考えられる傷病','レッドフラッグ（要確認）']];
   selectedBodyParts.forEach(p=>{
     const info=DISEASE_MAP[p.name];
     const allDiseases = info ? [...info.ortho,...info.other] : (()=>{const s=mergeSystemicDiseases(getAgeSexGroup());return[...s.ortho,...s.other];})();
@@ -1542,7 +1555,7 @@ function downloadExcel(){
     ws2Data.push([
       '①②③④⑤'[p.rank-1]+' '+p.name,
       (checked.length?checked:allDiseases).join(' / '),
-      rfDetected.length?'⚠ '+rfDetected.join(' / '):''
+      rfDetected.length?rfDetected.join(' / '):''
     ]);
   });
   const ws2=XLSX.utils.aoa_to_sheet(ws2Data);
