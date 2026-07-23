@@ -27,7 +27,7 @@
 [data-theme="dark"]{
   --color-bg:#171614;--color-surface:#1c1b19;--color-surface-2:#242320;
   --color-border:rgba(255,255,255,0.10);--color-divider:#2e2d2a;
-  --color-text:#cdccca;--color-text-muted:#888784;--color-text-faint:#55544f;
+  --color-text:#cdccca;--color-text-muted:#a08c51;--color-text-faint:#55544f;
   --color-primary:#4f98a3;--color-primary-hover:#63adb9;--color-primary-light:#1a3235;
   --color-error:#e57373;--color-error-bg:#2d1a18;
   --color-warn:#ffb74d;--color-warn-bg:#2d2000;
@@ -561,6 +561,7 @@ let currentStep = 0;
 let visitType = '';
 let revisitRecord = null;
 let revisitMatches = [];
+let revisitSelectedIndexes = [];
 let pendingDiseaseChecked = null;
 let selectedGender = '';
 let selectedBodyParts = []; // [{name, rank}] max 5
@@ -1254,6 +1255,7 @@ function backToVisitType(){
   visitType='';
   revisitRecord=null;
   revisitMatches=[];
+  revisitSelectedIndexes=[];
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('stepVisitType').classList.add('active');
   updateProgress(0);
@@ -1264,6 +1266,7 @@ function startFirstVisit(){
   visitType='初診';
   revisitRecord=null;
   revisitMatches=[];
+  revisitSelectedIndexes=[];
   showStep(1);
 }
 
@@ -1308,11 +1311,15 @@ function searchRevisitPatient(){
     if(!data || !data.ok || !data.patient){
       revisitRecord=null;
       revisitMatches=[];
+      revisitSelectedIndexes=[];
       setLookupStatus((data && data.message) || '該当する患者情報が見つかりませんでした。','error');
       return;
     }
-    revisitMatches=Array.isArray(data.patients) ? data.patients : (data.patient ? [data.patient] : []);
-    revisitRecord=revisitMatches[0] || data.patient;
+    revisitMatches=Array.isArray(data.complaints) && data.complaints.length
+      ? data.complaints
+      : (Array.isArray(data.patients) ? data.patients : (data.patient ? [data.patient] : []));
+    revisitSelectedIndexes=revisitMatches.length ? [0] : [];
+    revisitRecord=getSelectedRevisitRecords()[0] || data.patient;
     renderRevisitPatientSummary(revisitRecord,revisitMatches);
     document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
     document.getElementById('stepRevisitConfirm').classList.add('active');
@@ -1370,27 +1377,39 @@ function renderRevisitPatientSummary(patient,matches){
     return '<div class="patient-confirm-row"><span class="patient-confirm-key">'+escapeHtml(row[0])+'</span><span class="patient-confirm-val">'+escapeHtml(row[1]||'未登録')+'</span></div>';
   }).join('');
   const visitHtml=list.map(function(item,index){
-    const parts=(item.selectedBodyParts||[]).map(function(p,partIndex){
-      return '#'+(partIndex+1)+' '+(p.name||'');
-    }).join(' / ') || '部位未登録';
-    const checked=item===revisitRecord || (!revisitRecord && index===0);
-    const dateText=formatRevisitDate(item.receivedAt || item.submittedAt);
-    const visitTypeText=item.visitType || ((item.formData && item.formData.visitType) || '問診');
+    const sourceRecord=item.latestRecord || item;
+    const complaintLabel=item.complaintId && item.complaintName
+      ? item.complaintId+' '+item.complaintName
+      : (sourceRecord.selectedBodyParts||[]).map(function(p,partIndex){ return '#'+(partIndex+1)+' '+(p.name||''); }).join(' / ') || '部位未登録';
+    const checked=revisitSelectedIndexes.indexOf(index) !== -1;
+    const firstDate=item.firstDate || formatRevisitDate(sourceRecord.receivedAt || sourceRecord.submittedAt);
+    const latestDate=item.latestDate || formatRevisitDate(sourceRecord.receivedAt || sourceRecord.submittedAt);
+    const visitTypeText=sourceRecord.visitType || ((sourceRecord.formData && sourceRecord.formData.visitType) || '問診');
     return '<label class="patient-confirm-row" style="cursor:pointer;grid-template-columns:32px 1fr" for="revisitRecordChoice'+index+'">'
-      + '<span><input id="revisitRecordChoice'+index+'" type="radio" name="revisitRecordChoice" value="'+index+'" '+(checked?'checked':'')+' onchange="selectRevisitRecord('+index+')"></span>'
-      + '<span class="patient-confirm-val"><strong>'+escapeHtml(parts+'：'+dateText)+'</strong><br>'+escapeHtml(visitTypeText+'の問診データ')+'</span>'
+      + '<span><input id="revisitRecordChoice'+index+'" type="checkbox" name="revisitRecordChoice" value="'+index+'" '+(checked?'checked':'')+' onchange="selectRevisitRecord('+index+',this.checked)"></span>'
+      + '<span class="patient-confirm-val"><strong>'+escapeHtml(complaintLabel+'：'+firstDate)+'</strong><br>'+escapeHtml('直近データ：'+latestDate+' / '+visitTypeText)+'</span>'
       + '</label>';
   }).join('');
   container.innerHTML=
-    '<div class="revisit-note">該当する過去問診が'+list.length+'件見つかりました。どの愁訴の続きとして入力するか選択してください。</div>'
+    '<div class="revisit-note">登録済みの愁訴が'+list.length+'件見つかりました。今回気になる愁訴を複数選択できます。</div>'
     + patientHtml
-    + '<div class="sub-label" style="margin-top:var(--space-4)">続きとして使う愁訴・初診部位データ</div>'
+    + '<div class="sub-label" style="margin-top:var(--space-4)">今回読み込む愁訴</div>'
     + visitHtml;
 }
 
-function selectRevisitRecord(index){
+function selectRevisitRecord(index,checked){
   if(!Array.isArray(revisitMatches) || !revisitMatches[index]) return;
-  revisitRecord=revisitMatches[index];
+  revisitSelectedIndexes=revisitSelectedIndexes.filter(function(i){return i!==index;});
+  if(checked) revisitSelectedIndexes.push(index);
+  revisitSelectedIndexes.sort(function(a,b){return a-b;});
+  revisitRecord=getSelectedRevisitRecords()[0] || null;
+}
+
+function getSelectedRevisitRecords(){
+  return revisitSelectedIndexes
+    .map(function(index){ return revisitMatches[index]; })
+    .filter(Boolean)
+    .map(function(item){ return item.latestRecord || item; });
 }
 
 function formatRevisitDate(value){
@@ -1401,25 +1420,43 @@ function formatRevisitDate(value){
 }
 
 function confirmRevisitPatient(){
-  if(!revisitRecord || !revisitRecord.formData) return;
-  applyRevisitRecord(revisitRecord);
+  const selectedRecords=getSelectedRevisitRecords();
+  if(!selectedRecords.length){
+    alert('今回読み込む愁訴を1つ以上選択してください。');
+    return;
+  }
+  applyRevisitRecords(selectedRecords);
   buildDiseaseBlocks();
   showStep(3);
 }
 
 function applyRevisitRecord(patient){
+  applyRevisitRecords([patient]);
+}
+
+function applyRevisitRecords(records){
+  const patient=records[0];
   const f=patient.formData || {};
   formData=JSON.parse(JSON.stringify(f));
   formData.visitType='再診';
-  formData.previousSubmissionId=patient.submissionId || '';
+  formData.previousSubmissionId=records.map(function(record){return record.submissionId || '';}).filter(Boolean)[0] || '';
+  formData.previousSubmissionIds=records.map(function(record){return record.submissionId || '';}).filter(Boolean).join(',');
+  formData.revisitComplaintIds=records.map(function(record){return record.complaintId || '';}).filter(Boolean).join(',');
   formData.previousPatientHistoryUrl=patient.patientHistoryUrl || '';
   setBasicFieldsFromFormData(f);
-  selectedBodyParts=JSON.parse(JSON.stringify(patient.selectedBodyParts || []))
-    .filter(function(p){return p && p.name;})
-    .slice(0,5)
-    .map(function(p,i){p.rank=i+1;return p;});
-  symptomData=JSON.parse(JSON.stringify(patient.symptomData || {}));
-  pendingDiseaseChecked=JSON.parse(JSON.stringify(patient.diseaseChecked || {}));
+  selectedBodyParts=[];
+  symptomData={};
+  pendingDiseaseChecked={};
+  records.forEach(function(record){
+    const parts=JSON.parse(JSON.stringify(record.selectedBodyParts || [])).filter(function(p){return p && p.name;});
+    parts.forEach(function(part){
+      if(selectedBodyParts.length>=5) return;
+      part.rank=selectedBodyParts.length+1;
+      selectedBodyParts.push(part);
+    });
+    Object.assign(symptomData, JSON.parse(JSON.stringify(record.symptomData || {})));
+    Object.assign(pendingDiseaseChecked, JSON.parse(JSON.stringify(record.diseaseChecked || {})));
+  });
   renderBodyGrid();
   renderChips();
 }
