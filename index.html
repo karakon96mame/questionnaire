@@ -661,19 +661,25 @@ function hasKana(text){
 function hasKanji(text){
   return /[一-龯々〆ヵヶ]/.test(String(text || ''));
 }
-function setKanaIfEditable(value){
+function setKanaIfEditable(value, mode){
   const kanaInput = document.getElementById('kana');
   if(!kanaInput) return;
   if(kanaManuallyEdited && kanaInput.value.trim()) return;
   const kana = toHiragana(value).trim();
   if(!kana || !hasKana(kana)) return;
-  kanaInput.value = kana;
+  if(mode === 'append' && kanaInput.value.trim()){
+    kanaInput.value = kanaInput.value + kana;
+  }else{
+    kanaInput.value = kana;
+  }
   kanaManuallyEdited = false;
 }
 function syncKanaFromName(){
   const nameInput = document.getElementById('name');
+  const kanaInput = document.getElementById('kana');
   if(!nameInput || nameIsComposing) return;
   const value = nameInput.value.trim();
+  if(!value && kanaInput && !kanaManuallyEdited) kanaInput.value='';
   // 漢字確定後の文字はコピーしない。かなだけで入力された場合のみ自動反映する。
   if(value && hasKana(value) && !hasKanji(value)) setKanaIfEditable(value);
 }
@@ -697,7 +703,7 @@ function markKanaEdited(){
     nameInput.addEventListener('compositionend',function(e){
       nameIsComposing = false;
       const data = latestNameKanaComposition || (e && e.data ? e.data : '');
-      if(hasKana(data) && !hasKanji(data)) setKanaIfEditable(data);
+      if(hasKana(data) && !hasKanji(data)) setKanaIfEditable(data,'append');
       latestNameKanaComposition = '';
     });
     nameInput.addEventListener('input', syncKanaFromName);
