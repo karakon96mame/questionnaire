@@ -646,27 +646,62 @@ function convertBirthYear(){
   }
 }
 document.getElementById('bd-era').addEventListener('change',convertBirthYear);
-// 氏名入力時、ふりがな欄へいったん自動反映（あとから編集可能）
+// 氏名入力時、IME変換前のかなをふりがな欄へ自動反映（あとから編集可能）
 let kanaManuallyEdited = false;
+let nameIsComposing = false;
+let latestNameKanaComposition = '';
+function toHiragana(text){
+  return String(text || '').replace(/[ァ-ン]/g,function(ch){
+    return String.fromCharCode(ch.charCodeAt(0)-0x60);
+  });
+}
+function hasKana(text){
+  return /[ぁ-んァ-ン]/.test(String(text || ''));
+}
+function hasKanji(text){
+  return /[一-龯々〆ヵヶ]/.test(String(text || ''));
+}
+function setKanaIfEditable(value){
+  const kanaInput = document.getElementById('kana');
+  if(!kanaInput) return;
+  if(kanaManuallyEdited && kanaInput.value.trim()) return;
+  const kana = toHiragana(value).trim();
+  if(!kana || !hasKana(kana)) return;
+  kanaInput.value = kana;
+  kanaManuallyEdited = false;
+}
 function syncKanaFromName(){
   const nameInput = document.getElementById('name');
-  const kanaInput = document.getElementById('kana');
-  if(!nameInput || !kanaInput) return;
-  if(!kanaManuallyEdited || !kanaInput.value.trim()){
-    kanaInput.value = nameInput.value;
-    kanaManuallyEdited = false;
-  }
+  if(!nameInput || nameIsComposing) return;
+  const value = nameInput.value.trim();
+  // 漢字確定後の文字はコピーしない。かなだけで入力された場合のみ自動反映する。
+  if(value && hasKana(value) && !hasKanji(value)) setKanaIfEditable(value);
 }
 function markKanaEdited(){
-  const nameInput = document.getElementById('name');
   const kanaInput = document.getElementById('kana');
-  if(!nameInput || !kanaInput) return;
-  kanaManuallyEdited = kanaInput.value.trim() !== '' && kanaInput.value !== nameInput.value;
+  if(!kanaInput) return;
+  kanaManuallyEdited = kanaInput.value.trim() !== '';
 }
 (function initKanaAutoFill(){
   const nameInput = document.getElementById('name');
   const kanaInput = document.getElementById('kana');
-  if(nameInput) nameInput.addEventListener('input', syncKanaFromName);
+  if(nameInput){
+    nameInput.addEventListener('compositionstart',function(){
+      nameIsComposing = true;
+      latestNameKanaComposition = '';
+    });
+    nameInput.addEventListener('compositionupdate',function(e){
+      const data = e && e.data ? e.data : '';
+      if(hasKana(data) && !hasKanji(data)) latestNameKanaComposition = data;
+    });
+    nameInput.addEventListener('compositionend',function(e){
+      nameIsComposing = false;
+      const data = latestNameKanaComposition || (e && e.data ? e.data : '');
+      if(hasKana(data) && !hasKanji(data)) setKanaIfEditable(data);
+      latestNameKanaComposition = '';
+    });
+    nameInput.addEventListener('input', syncKanaFromName);
+  }
   if(kanaInput) kanaInput.addEventListener('input', markKanaEdited);
 })();
 
