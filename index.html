@@ -136,7 +136,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 .red-flag-banner{background:var(--color-warn-bg);border:1px solid #fcd34d;border-radius:var(--radius-md);padding:var(--space-3) var(--space-4);font-size:var(--text-sm);color:var(--color-warn);font-weight:600;margin-bottom:var(--space-4);display:none}
 .red-flag-banner.show{display:block}
 /* ── Navigation buttons ── */
-.nav-row{display:flex;gap:var(--space-3);margin-top:var(--space-8)}
+.nav-row{display:flex;flex-wrap:wrap;gap:var(--space-3);margin-top:var(--space-8)}
 .btn-primary{flex:1;padding:var(--space-4);border-radius:var(--radius-lg);background:var(--color-primary);color:#fff;font-size:var(--text-base);font-weight:700;transition:background 180ms ease}
 .btn-primary:hover{background:var(--color-primary-hover)}
 .btn-secondary{padding:var(--space-4) var(--space-6);border-radius:var(--radius-lg);border:1.5px solid var(--color-border);color:var(--color-text-muted);font-size:var(--text-base);font-weight:600;transition:all 180ms}
@@ -186,6 +186,9 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 .patient-confirm-key{color:var(--color-text-muted);font-weight:700}
 .patient-confirm-val{color:var(--color-text);font-weight:600}
 .revisit-note{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4)}
+.persistent-back{position:fixed;top:76px;left:max(var(--space-4),calc((100vw - 680px)/2 - 88px));z-index:90;padding:var(--space-2) var(--space-4);border:1.5px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-surface);color:var(--color-primary);font-size:var(--text-sm);font-weight:700;box-shadow:var(--shadow-md)}
+.persistent-back:hover{border-color:var(--color-primary);background:var(--color-primary-light)}
+@media(max-width:900px){.persistent-back{top:auto;bottom:var(--space-4);left:var(--space-4)}}
 @media(max-width:600px){.visit-start-container{min-height:calc(100dvh - 80px);align-items:center}.visit-choice-grid{grid-template-columns:1fr}.patient-confirm-row{grid-template-columns:1fr;gap:var(--space-1)}}
 
 </style>
@@ -210,6 +213,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 </header>
 
 <main class="main-container">
+  <button class="persistent-back" id="persistentBackButton" type="button" onclick="handlePersistentBack()" style="display:none">← 戻る</button>
   <!-- Progress -->
   <div class="progress-bar" id="progressBar" style="display:none">
     <div class="progress-steps" id="progressSteps"></div>
@@ -241,7 +245,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
   <div class="step-page" id="stepRevisitSearch">
     <div class="card">
       <h1 class="card-title">再診の方の確認</h1>
-      <p class="card-subtitle">氏名・ふりがな・電話番号・生年月日のいずれかを入力して前回の問診票を検索します。</p>
+      <p class="card-subtitle">電話番号、または氏名・ふりがなと生年月日を入力して前回の問診票を検索します。</p>
       <div class="field">
         <label class="field-label" for="revisitTel">電話番号</label>
         <input class="input-text" type="tel" id="revisitTel" placeholder="例：090-1234-5678">
@@ -253,7 +257,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
       <div class="field">
         <label class="field-label" for="revisitBirth">生年月日</label>
         <input class="input-text" type="text" id="revisitBirth" placeholder="例：1980-01-01 または 19800101" inputmode="numeric">
-        <div class="field-hint">電話番号または氏名・生年月日で検索できます。</div>
+        <div class="field-hint">電話番号の完全一致、または氏名・ふりがなと生年月日の完全一致で検索します。</div>
       </div>
       <div class="lookup-status" id="revisitLookupStatus" role="status" aria-live="polite"></div>
     </div>
@@ -272,6 +276,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
     </div>
     <div class="nav-row">
       <button class="btn-secondary" type="button" onclick="showRevisitSearch()">← 検索に戻る</button>
+        <button class="btn-secondary" type="button" onclick="startNewRevisitComplaint()">新しい愁訴を追加</button>
         <button class="btn-primary" type="button" onclick="confirmRevisitPatient()">選択した愁訴の続きへ　→</button>
     </div>
   </div>
@@ -446,42 +451,6 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
     </div>
     <div class="nav-row">
       <button class="btn-secondary" onclick="goBack(5)">← 戻る</button>
-      <button class="btn-primary" onclick="goNext(5)">次へ　→</button>
-    </div>
-  </div>
-
-
-  <!-- =========== STEP 6: バイタル入力 =========== -->
-  <div class="step-page" id="step6">
-    <div class="card">
-      <h2 class="card-title">バイタル入力</h2>
-      <p class="card-subtitle">送信前に、現在のバイタルを入力してください。未測定の項目は空欄のままで大丈夫です。</p>
-      <div class="field-grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:var(--space-3)">
-        <div class="field">
-          <label class="field-label" for="vitalTemp">体温</label>
-          <input class="input-text" type="text" id="vitalTemp" inputmode="decimal" placeholder="例：36.5">
-        </div>
-        <div class="field">
-          <label class="field-label">血圧</label>
-          <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">
-            <input class="input-text" type="text" id="vitalBpSys" inputmode="numeric" placeholder="上">
-            <span style="color:var(--color-text-muted);font-weight:700">/</span>
-            <input class="input-text" type="text" id="vitalBpDia" inputmode="numeric" placeholder="下">
-          </div>
-        </div>
-        <div class="field">
-          <label class="field-label" for="vitalPulse">脈拍</label>
-          <input class="input-text" type="text" id="vitalPulse" inputmode="numeric" placeholder="例：72">
-        </div>
-        <div class="field">
-          <label class="field-label" for="vitalSpo2">SpO2</label>
-          <input class="input-text" type="text" id="vitalSpo2" inputmode="numeric" placeholder="例：98">
-        </div>
-      </div>
-      <div class="field-hint">数値の単位はひつようありません。</div>
-    </div>
-    <div class="nav-row">
-      <button class="btn-secondary" onclick="goBack(6)">← 戻る</button>
       <button class="btn-primary" onclick="showConfirm()">内容を確認する　→</button>
     </div>
   </div>
@@ -540,7 +509,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 // ==============================
 // 定数
 // ==============================
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 const RANK_COLORS = ['#dc2626','#ea6c00','#7c3aed','#2563eb','#16a34a'];
 
 // 体の部位リスト
@@ -598,13 +567,13 @@ let visitType = '';
 let revisitRecord = null;
 let revisitMatches = [];
 let revisitSelectedIndexes = [];
+let revisitNewComplaint = false;
 let pendingDiseaseChecked = null;
 let selectedGender = '';
 let selectedBodyParts = []; // [{name, rank}] max 5
 let symptomData = {}; // {partName: {onset, situation, cause, quality, vasNow, vasOnset, change, pattern, free}}
 let diseaseChecked = {}; // {partName: [disease,...]}
 let formData = {};
-let vitalsData = {};
 let computedBirthYear = 0; // 西暦での年
 
 // ==============================
@@ -646,71 +615,6 @@ function convertBirthYear(){
   }
 }
 document.getElementById('bd-era').addEventListener('change',convertBirthYear);
-// 氏名入力時、IME変換前のかなをふりがな欄へ自動反映（あとから編集可能）
-let kanaManuallyEdited = false;
-let nameIsComposing = false;
-let latestNameKanaComposition = '';
-function toHiragana(text){
-  return String(text || '').replace(/[ァ-ン]/g,function(ch){
-    return String.fromCharCode(ch.charCodeAt(0)-0x60);
-  });
-}
-function hasKana(text){
-  return /[ぁ-んァ-ン]/.test(String(text || ''));
-}
-function hasKanji(text){
-  return /[一-龯々〆ヵヶ]/.test(String(text || ''));
-}
-function setKanaIfEditable(value, mode){
-  const kanaInput = document.getElementById('kana');
-  if(!kanaInput) return;
-  if(kanaManuallyEdited && kanaInput.value.trim()) return;
-  const kana = toHiragana(value).trim();
-  if(!kana || !hasKana(kana)) return;
-  if(mode === 'append' && kanaInput.value.trim()){
-    kanaInput.value = kanaInput.value + kana;
-  }else{
-    kanaInput.value = kana;
-  }
-  kanaManuallyEdited = false;
-}
-function syncKanaFromName(){
-  const nameInput = document.getElementById('name');
-  const kanaInput = document.getElementById('kana');
-  if(!nameInput || nameIsComposing) return;
-  const value = nameInput.value.trim();
-  if(!value && kanaInput && !kanaManuallyEdited) kanaInput.value='';
-  // 漢字確定後の文字はコピーしない。かなだけで入力された場合のみ自動反映する。
-  if(value && hasKana(value) && !hasKanji(value)) setKanaIfEditable(value);
-}
-function markKanaEdited(){
-  const kanaInput = document.getElementById('kana');
-  if(!kanaInput) return;
-  kanaManuallyEdited = kanaInput.value.trim() !== '';
-}
-(function initKanaAutoFill(){
-  const nameInput = document.getElementById('name');
-  const kanaInput = document.getElementById('kana');
-  if(nameInput){
-    nameInput.addEventListener('compositionstart',function(){
-      nameIsComposing = true;
-      latestNameKanaComposition = '';
-    });
-    nameInput.addEventListener('compositionupdate',function(e){
-      const data = e && e.data ? e.data : '';
-      if(hasKana(data) && !hasKanji(data)) latestNameKanaComposition = data;
-    });
-    nameInput.addEventListener('compositionend',function(e){
-      nameIsComposing = false;
-      const data = latestNameKanaComposition || (e && e.data ? e.data : '');
-      if(hasKana(data) && !hasKanji(data)) setKanaIfEditable(data,'append');
-      latestNameKanaComposition = '';
-    });
-    nameInput.addEventListener('input', syncKanaFromName);
-  }
-  if(kanaInput) kanaInput.addEventListener('input', markKanaEdited);
-})();
-
 document.getElementById('bd-year').addEventListener('input',function(){
   // 全角数字→半角に自動変換
   let v = this.value.replace(/[０-９]/g, function(c){ return String.fromCharCode(c.charCodeAt(0)-0xFEE0); });
@@ -1165,7 +1069,7 @@ function updateProgress(step){
     d.className='step-dot'+(i<step?' done':i===step?' active':'');
     steps.appendChild(d);
   }
-  const labels=['基本情報','部位の選択','考えられる症状','詳しい症状','その他の情報','バイタル'];
+  const labels=['基本情報','部位の選択','考えられる症状','詳しい症状','その他の情報'];
   label.innerHTML=`ステップ <span>${step}/${TOTAL_STEPS}</span>　${labels[step-1]}`;
 }
 
@@ -1215,58 +1119,31 @@ function goNext(from){
     formData.visitType=visitType || '初診';
     formData.previousSubmissionId=revisitRecord && revisitRecord.submissionId ? revisitRecord.submissionId : '';
   }
-  if(from===5){
-    collectVitalsData();
-  }
   const next=from+1;
   if(next===3) buildDiseaseBlocks();
   if(next===4) buildSymptomBlocks();
   showStep(next);
 }
-function goBack(from){showStep(from-1);}
+function goBack(from){
+  if(from===3 && visitType==='再診' && !revisitNewComplaint){
+    showRevisitConfirm();
+    return;
+  }
+  showStep(from-1);
+}
 function showStep(n){
   currentStep=n;
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('step'+n).classList.add('active');
   updateProgress(n);
+  updatePersistentBackButton();
   window.scrollTo({top:0,behavior:'smooth'});
-}
-
-
-function collectVitalsData(){
-  const temp=document.getElementById('vitalTemp');
-  const bpSys=document.getElementById('vitalBpSys');
-  const bpDia=document.getElementById('vitalBpDia');
-  const pulse=document.getElementById('vitalPulse');
-  const spo2=document.getElementById('vitalSpo2');
-  vitalsData={
-    temperature: temp ? temp.value.trim() : '',
-    bpSys: bpSys ? bpSys.value.trim() : '',
-    bpDia: bpDia ? bpDia.value.trim() : '',
-    pulse: pulse ? pulse.value.trim() : '',
-    spo2: spo2 ? spo2.value.trim() : ''
-  };
-  vitalsData.bloodPressure = vitalsData.bpSys || vitalsData.bpDia ? (vitalsData.bpSys || '') + '/' + (vitalsData.bpDia || '') : '';
-  formData.vitals = JSON.parse(JSON.stringify(vitalsData));
-  return vitalsData;
-}
-
-function getVitalsForDisplay(){
-  const v=vitalsData||{};
-  const bp=v.bloodPressure || ((v.bpSys||v.bpDia) ? (v.bpSys||'') + '/' + (v.bpDia||'') : '');
-  return {
-    temperature:v.temperature||'',
-    bloodPressure:bp,
-    pulse:v.pulse||'',
-    spo2:v.spo2||''
-  };
 }
 
 // ==============================
 // 確認画面
 // ==============================
 function showConfirm(){
-  collectVitalsData();
   formData.history=document.getElementById('history').value.trim();
   formData.medicine=document.getElementById('medicine').value.trim();
   formData.allergy=document.getElementById('allergy').value.trim();
@@ -1299,14 +1176,6 @@ function showConfirm(){
     ['性別',formData.gender+(formData.hormoneTherapy?' / 性別適合ホルモン療法を受けている':'')],['電話番号',formData.tel||'未記入'],
   ];
   container.appendChild(buildConfirmSection('基本情報',basic));
-
-  const vitalDisplay=getVitalsForDisplay();
-  container.appendChild(buildConfirmSection('バイタル',[
-    ['体温',vitalDisplay.temperature? vitalDisplay.temperature+' ℃':'未記入'],
-    ['血圧',vitalDisplay.bloodPressure||'未記入'],
-    ['脈拍',vitalDisplay.pulse? vitalDisplay.pulse+' 回/分':'未記入'],
-    ['SpO2',vitalDisplay.spo2? vitalDisplay.spo2+' %':'未記入']
-  ]));
 
   // 部位
   container.appendChild(buildConfirmSection('気になる部位（優先順）',[
@@ -1392,7 +1261,7 @@ function buildConfirmSection(title, rows){
 }
 
 function backFromConfirm(){
-  showStep(6);
+  showStep(5);
 }
 
 function backToVisitType(){
@@ -1400,9 +1269,11 @@ function backToVisitType(){
   revisitRecord=null;
   revisitMatches=[];
   revisitSelectedIndexes=[];
+  revisitNewComplaint=false;
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('stepVisitType').classList.add('active');
   updateProgress(0);
+  updatePersistentBackButton();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -1411,11 +1282,13 @@ function startFirstVisit(){
   revisitRecord=null;
   revisitMatches=[];
   revisitSelectedIndexes=[];
+  revisitNewComplaint=false;
   showStep(1);
 }
 
 function startRevisit(){
   visitType='再診';
+  revisitNewComplaint=false;
   showRevisitSearch();
 }
 
@@ -1423,6 +1296,7 @@ function showRevisitSearch(){
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('stepRevisitSearch').classList.add('active');
   updateProgress(0);
+  updatePersistentBackButton();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -1437,8 +1311,8 @@ function searchRevisitPatient(){
   const name=document.getElementById('revisitName').value.trim();
   const tel=document.getElementById('revisitTel').value.trim();
   const birthdate=document.getElementById('revisitBirth').value.trim();
-  if(!name && !tel && !birthdate){
-    setLookupStatus('氏名・ふりがな・電話番号・生年月日のいずれかを入力してください。','error');
+  if(!tel && !(name && birthdate)){
+    setLookupStatus('電話番号、または氏名・ふりがなと生年月日の両方を入力してください。','error');
     return;
   }
   const button=document.getElementById('revisitSearchButton');
@@ -1467,6 +1341,7 @@ function searchRevisitPatient(){
     renderRevisitPatientSummary(revisitRecord,revisitMatches);
     document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
     document.getElementById('stepRevisitConfirm').classList.add('active');
+    updatePersistentBackButton();
     window.scrollTo({top:0,behavior:'smooth'});
   }).catch(function(error){
     console.error(error);
@@ -1569,9 +1444,62 @@ function confirmRevisitPatient(){
     alert('今回読み込む愁訴を1つ以上選択してください。');
     return;
   }
+  revisitNewComplaint=false;
   applyRevisitRecords(selectedRecords);
   buildDiseaseBlocks();
   showStep(3);
+}
+
+function showRevisitConfirm(){
+  document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('stepRevisitConfirm').classList.add('active');
+  updateProgress(0);
+  updatePersistentBackButton();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function startNewRevisitComplaint(){
+  const sourceItem=(revisitMatches && revisitMatches[0]) || revisitRecord;
+  const patient=sourceItem && (sourceItem.latestRecord || sourceItem);
+  if(!patient){
+    alert('患者情報を読み込めませんでした。もう一度検索してください。');
+    return;
+  }
+  applyRevisitRecords([patient]);
+  revisitNewComplaint=true;
+  revisitSelectedIndexes=[];
+  selectedBodyParts=[];
+  symptomData={};
+  diseaseChecked={};
+  pendingDiseaseChecked={};
+  formData.previousSubmissionId=patient.submissionId || '';
+  formData.previousSubmissionIds=formData.previousSubmissionId;
+  formData.revisitComplaintIds='';
+  renderBodyGrid();
+  renderSelectedChips();
+  showStep(2);
+}
+
+function handlePersistentBack(){
+  const active=document.querySelector('.step-page.active');
+  if(!active) return;
+  if(active.id==='stepRevisitSearch'){backToVisitType();return;}
+  if(active.id==='stepRevisitConfirm'){showRevisitSearch();return;}
+  if(active.id==='step1'){backToVisitType();return;}
+  if(active.id==='step2'){
+    if(visitType==='再診'){showRevisitConfirm();return;}
+    showStep(1);return;
+  }
+  if(active.id==='step3' && visitType==='再診' && !revisitNewComplaint){showRevisitConfirm();return;}
+  if(active.id==='stepConfirm'){backFromConfirm();return;}
+  if(/^step[3-5]$/.test(active.id)){goBack(Number(active.id.replace('step','')));return;}
+}
+
+function updatePersistentBackButton(){
+  const button=document.getElementById('persistentBackButton');
+  const active=document.querySelector('.step-page.active');
+  if(!button || !active) return;
+  button.style.display=(active.id==='stepVisitType' || active.id==='stepComplete') ? 'none' : 'block';
 }
 
 function applyRevisitRecord(patient){
@@ -1663,8 +1591,7 @@ function buildSubmissionPayload(){
     formData:JSON.parse(JSON.stringify(formData)),
     selectedBodyParts:JSON.parse(JSON.stringify(selectedBodyParts)),
     diseaseChecked:JSON.parse(JSON.stringify(diseaseChecked)),
-    symptomData:JSON.parse(JSON.stringify(symptomData)),
-    vitalsData:JSON.parse(JSON.stringify(vitalsData))
+    symptomData:JSON.parse(JSON.stringify(symptomData))
   };
 }
 
@@ -1696,6 +1623,7 @@ async function finalSubmit(){
     });
     document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
     document.getElementById('stepComplete').classList.add('active');
+    updatePersistentBackButton();
     window.scrollTo({top:0,behavior:'smooth'});
   }catch(error){
     console.error('送信エラー:',error);
@@ -1720,17 +1648,16 @@ function downloadExcel(){
     ? `西暦${formData.bdWestern}年${formData.bdMonth}月${formData.bdDay}日`
     : `${eraLabel}${formData.bdYear}年（西暦${formData.bdWestern}年）${formData.bdMonth}月${formData.bdDay}日`;
 
-  const vitalDisplay=getVitalsForDisplay();
   const ws1Data=[
-    ['項目','内容','','バイタル記録','体温','血圧','脈拍','SpO2'],
-    ['お名前',formData.name,'','1回目',vitalDisplay.temperature,vitalDisplay.bloodPressure,vitalDisplay.pulse,vitalDisplay.spo2],
-    ['ふりがな',formData.kana,'','','','','',''],
-    ['生年月日',bdDisplay,'','','','','',''],
-    ['年齢（推計）',formData.age!=null?formData.age+'歳':'不明','','','','','',''],
-    ['性別',formData.gender+(formData.hormoneTherapy?' / 性別適合ホルモン療法を受けている':''),'','','','','',''],
-    ['電話番号',formData.tel||'','','','','','',''],
-    ['','','','','','','',''],
-    ['気になる部位（優先順位順）',selectedBodyParts.map((p,i)=>'①②③④⑤'[i]+' '+p.name+(p.otherText?'（'+p.otherText+'）':'')).join(' / '),'','','','','',''],
+    ['項目','内容'],
+    ['お名前',formData.name],
+    ['ふりがな',formData.kana],
+    ['生年月日',bdDisplay],
+    ['年齢（推計）',formData.age!=null?formData.age+'歳':'不明'],
+    ['性別',formData.gender+(formData.hormoneTherapy?' / 性別適合ホルモン療法を受けている':'')],
+    ['電話番号',formData.tel||''],
+    ['',''],
+    ['気になる部位（優先順位順）',selectedBodyParts.map((p,i)=>'①②③④⑤'[i]+' '+p.name+(p.otherText?'（'+p.otherText+'）':'')).join(' / ')],
   ];
 
   selectedBodyParts.forEach(p=>{
@@ -1758,7 +1685,7 @@ function downloadExcel(){
   ws1Data.push(['その他に気になるところ',formData.revisitOtherConcern||'']);
 
   const ws1=XLSX.utils.aoa_to_sheet(ws1Data);
-  ws1['!cols']=[{wch:32},{wch:50},{wch:4},{wch:14},{wch:12},{wch:14},{wch:12},{wch:12}];
+  ws1['!cols']=[{wch:32},{wch:50}];
   XLSX.utils.book_append_sheet(wb,ws1,'問診票');
 
   // === シート2: 考えられる傷病 ===
