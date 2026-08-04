@@ -158,6 +158,20 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 /* ── Step visibility ── */
 .step-page{display:none}
 .step-page.active{display:block}
+.menu-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3)}
+.menu-card{display:block;width:100%;text-align:left;padding:var(--space-4);border:1.5px solid var(--color-border);border-radius:var(--radius-lg);background:var(--color-surface);color:var(--color-text);cursor:pointer;transition:border-color 180ms ease,box-shadow 180ms ease,background 180ms ease}
+.menu-card:hover{border-color:var(--color-primary);box-shadow:var(--shadow-sm)}
+.menu-card.selected{border-color:var(--color-primary);background:var(--color-primary-light);box-shadow:0 0 0 2px color-mix(in srgb,var(--color-primary) 18%,transparent)}
+.menu-name{font-weight:700;font-size:var(--text-base);margin-bottom:var(--space-2)}
+.menu-description{font-size:var(--text-sm);color:var(--color-text-muted);line-height:1.65;margin-bottom:var(--space-3)}
+.menu-meta{display:flex;flex-wrap:wrap;gap:var(--space-2);font-size:var(--text-sm);font-weight:700}
+.menu-meta span{padding:var(--space-1) var(--space-2);border-radius:var(--radius-full);background:var(--color-surface-2)}
+.ticket-guide{margin-top:var(--space-5);padding:var(--space-4);border-radius:var(--radius-lg);background:var(--color-warn-bg);border:1px solid color-mix(in srgb,var(--color-warn) 35%,transparent);line-height:1.7;font-size:var(--text-sm)}
+.ticket-options{display:grid;gap:var(--space-2);margin-top:var(--space-3)}
+.ticket-option{display:flex;align-items:flex-start;gap:var(--space-3);padding:var(--space-3);border:1.5px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-bg);cursor:pointer}
+.ticket-option:has(input:checked){border-color:var(--color-primary);background:var(--color-primary-light)}
+.ticket-option input{margin-top:.2rem;accent-color:var(--color-primary)}
+@media(max-width:680px){.menu-grid{grid-template-columns:1fr}}
 /* ── Age/sex category ── */
 .age-sex-badge{display:inline-block;padding:2px 10px;border-radius:var(--radius-full);font-size:var(--text-xs);font-weight:700;background:var(--color-primary-light);color:var(--color-primary);margin-bottom:var(--space-4)}
 /* ── Responsive ── */
@@ -451,6 +465,34 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
     </div>
     <div class="nav-row">
       <button class="btn-secondary" onclick="goBack(5)">← 戻る</button>
+      <button class="btn-primary" onclick="goNext(5)">次へ　→</button>
+    </div>
+  </div>
+
+  <!-- =========== STEP 6: 本日のメニュー =========== -->
+  <div class="step-page" id="step6">
+    <div class="card">
+      <h2 class="card-title">本日のコースを選択してください</h2>
+      <p class="card-subtitle">ご希望のコースを1つお選びください。内容は当日の状態を確認したうえでスタッフと変更できます。</p>
+      <div class="menu-grid" id="courseMenuGrid"></div>
+      <div class="field-error" id="err-course">本日のコースを選択してください</div>
+
+      <div class="ticket-guide">
+        <strong>回数券のご案内</strong><br>
+        5回券は10,000円で販売しており、2,200円分を1回分としてご利用いただけます。お手持ちの回数券の使用だけでなく、本日購入してそのまま使用することもできます。
+      </div>
+      <div class="field" style="margin-top:var(--space-5)">
+        <label class="field-label">本日の回数券利用<span class="required">*</span></label>
+        <div class="ticket-options">
+          <label class="ticket-option"><input type="radio" name="ticketAction" value="使用しない（都度払い）"><span><strong>使用しない</strong><br>本日は通常料金でお支払い</span></label>
+          <label class="ticket-option"><input type="radio" name="ticketAction" value="手持ちの回数券を使用"><span><strong>手持ちの回数券を使用</strong><br>お持ちの回数券から必要回数分を使用</span></label>
+          <label class="ticket-option"><input type="radio" name="ticketAction" value="回数券を購入して使用"><span><strong>回数券を購入して使用</strong><br>本日5回券（10,000円）を購入し、必要回数分を使用</span></label>
+        </div>
+        <div class="field-error" id="err-ticket">回数券の利用方法を選択してください</div>
+      </div>
+    </div>
+    <div class="nav-row">
+      <button class="btn-secondary" onclick="goBack(6)">← 戻る</button>
       <button class="btn-primary" onclick="showConfirm()">内容を確認する　→</button>
     </div>
   </div>
@@ -509,8 +551,18 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
 // ==============================
 // 定数
 // ==============================
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 const RANK_COLORS = ['#dc2626','#ea6c00','#7c3aed','#2563eb','#16a34a'];
+const COURSE_MENU = [
+  {name:'からだのコンビニコース',description:'主に治療器を用いたメンテナンスコース',duration:30,price:2200,ticketCount:1,ticketValue:2000},
+  {name:'ちょこっとメンテコース',description:'からだのコンビニコース＋マッサージまたは鍼灸（15分程度）',duration:45,price:4400,ticketCount:2,ticketValue:4000},
+  {name:'じっくりメンテコース',description:'からだのコンビニコース＋マッサージまたは鍼灸（30分程度）',duration:60,price:6600,ticketCount:3,ticketValue:6000},
+  {name:'じっくりメンテコース90',description:'からだのコンビニコース＋マッサージまたは鍼灸（60分程度）',duration:90,price:11000,ticketCount:5,ticketValue:10000},
+  {name:'じっくりメンテコース120',description:'からだのコンビニコース＋マッサージ＆鍼灸施術（90分程度）',duration:120,price:13200,ticketCount:6,ticketValue:12000},
+  {name:'美容鍼コース',description:'自然治癒力に働きかけ、肌質改善やリフトアップを目指します',duration:60,price:8800,ticketCount:3,ticketValue:8000},
+  {name:'新規・治療コース',description:'疾患や長年の痛みに集中アプローチします',duration:90,price:6600,ticketCount:3,ticketValue:6000},
+  {name:'継続・治療コース',description:'継続治療の方向け。施術時間は当日スタッフと確認します',duration:45,price:4400,ticketCount:3,ticketValue:6000}
+];
 
 // 体の部位リスト
 const BODY_PARTS = [
@@ -575,6 +627,22 @@ let symptomData = {}; // {partName: {onset, situation, cause, quality, vasNow, v
 let diseaseChecked = {}; // {partName: [disease,...]}
 let formData = {};
 let computedBirthYear = 0; // 西暦での年
+let selectedCourse = null;
+
+function renderCourseMenu(){
+  const grid=document.getElementById('courseMenuGrid');
+  if(!grid) return;
+  grid.innerHTML='';
+  COURSE_MENU.forEach((course,index)=>{
+    const button=document.createElement('button');
+    button.type='button';
+    button.className='menu-card'+(selectedCourse&&selectedCourse.name===course.name?' selected':'');
+    button.innerHTML=`<div class="menu-name">${escapeHtml(course.name)}</div><div class="menu-description">${escapeHtml(course.description)}</div><div class="menu-meta"><span>約${course.duration}分</span><span>${course.price.toLocaleString('ja-JP')}円</span><span>回数券 ${course.ticketCount}回分</span></div>`;
+    button.addEventListener('click',()=>{selectedCourse=JSON.parse(JSON.stringify(COURSE_MENU[index]));clearError('err-course');renderCourseMenu();});
+    grid.appendChild(button);
+  });
+}
+renderCourseMenu();
 
 // ==============================
 // 生年月日：月・日ドロップダウン初期化
@@ -1069,7 +1137,7 @@ function updateProgress(step){
     d.className='step-dot'+(i<step?' done':i===step?' active':'');
     steps.appendChild(d);
   }
-  const labels=['基本情報','部位の選択','考えられる症状','詳しい症状','その他の情報'];
+  const labels=['基本情報','部位の選択','考えられる症状','詳しい症状','その他の情報','本日のコース'];
   label.innerHTML=`ステップ <span>${step}/${TOTAL_STEPS}</span>　${labels[step-1]}`;
 }
 
@@ -1092,6 +1160,11 @@ function validateStep(step){
   }
   if(step===2){
     if(selectedBodyParts.length===0){showError('err-body');ok=false;}else clearError('err-body');
+  }
+  if(step===6){
+    const ticket=document.querySelector('input[name="ticketAction"]:checked');
+    if(!selectedCourse){showError('err-course');ok=false;}else clearError('err-course');
+    if(!ticket){showError('err-ticket');ok=false;}else clearError('err-ticket');
   }
   return ok;
 }
@@ -1144,6 +1217,7 @@ function showStep(n){
 // 確認画面
 // ==============================
 function showConfirm(){
+  if(!validateStep(6)) return;
   formData.history=document.getElementById('history').value.trim();
   formData.medicine=document.getElementById('medicine').value.trim();
   formData.allergy=document.getElementById('allergy').value.trim();
@@ -1157,6 +1231,15 @@ function showConfirm(){
   const revisitOtherConcern=document.getElementById('revisitOtherConcern');
   formData.revisitOtherConcern = revisitOtherConcern ? revisitOtherConcern.value.trim() : '';
   formData.diseaseOther='';
+  const ticketAction=document.querySelector('input[name="ticketAction"]:checked').value;
+  formData.courseName=selectedCourse.name;
+  formData.courseDuration=selectedCourse.duration;
+  formData.coursePrice=selectedCourse.price;
+  formData.courseTicketCount=selectedCourse.ticketCount;
+  formData.courseTicketValue=selectedCourse.ticketValue;
+  formData.ticketAction=ticketAction;
+  formData.ticketPurchased=ticketAction==='回数券を購入して使用';
+  formData.ticketUsed=ticketAction!=='使用しない（都度払い）';
 
   const container=document.getElementById('confirmContent');
   container.innerHTML='';
@@ -1230,6 +1313,13 @@ function showConfirm(){
   ];
   if(formData.gender!=='男性') otherRows.splice(3,0,['妊娠',formData.pregnant]);
   container.appendChild(buildConfirmSection('その他の情報',otherRows));
+  container.appendChild(buildConfirmSection('本日のコース・回数券',[
+    ['コース',formData.courseName],
+    ['所要時間','約'+formData.courseDuration+'分'],
+    ['通常料金',Number(formData.coursePrice).toLocaleString('ja-JP')+'円'],
+    ['回数券利用',formData.ticketAction],
+    ['必要回数',formData.courseTicketCount+'回分（'+Number(formData.courseTicketValue).toLocaleString('ja-JP')+'円分）']
+  ]));
 
   // red flag banner
   const banner=document.getElementById('redFlagBanner');
@@ -1261,7 +1351,15 @@ function buildConfirmSection(title, rows){
 }
 
 function backFromConfirm(){
-  showStep(5);
+  showStep(6);
+}
+
+function resetMenuSelection(){
+  selectedCourse=null;
+  document.querySelectorAll('input[name="ticketAction"]').forEach(input=>{input.checked=false;});
+  clearError('err-course');
+  clearError('err-ticket');
+  renderCourseMenu();
 }
 
 function backToVisitType(){
@@ -1283,12 +1381,14 @@ function startFirstVisit(){
   revisitMatches=[];
   revisitSelectedIndexes=[];
   revisitNewComplaint=false;
+  resetMenuSelection();
   showStep(1);
 }
 
 function startRevisit(){
   visitType='再診';
   revisitNewComplaint=false;
+  resetMenuSelection();
   showRevisitSearch();
 }
 
@@ -1492,7 +1592,7 @@ function handlePersistentBack(){
   }
   if(active.id==='step3' && visitType==='再診' && !revisitNewComplaint){showRevisitConfirm();return;}
   if(active.id==='stepConfirm'){backFromConfirm();return;}
-  if(/^step[3-5]$/.test(active.id)){goBack(Number(active.id.replace('step','')));return;}
+  if(/^step[3-6]$/.test(active.id)){goBack(Number(active.id.replace('step','')));return;}
 }
 
 function updatePersistentBackButton(){
@@ -1683,6 +1783,12 @@ function downloadExcel(){
   ws1Data.push(['来院きっかけ',formData.referral||'']);
   ws1Data.push(['その他コメント',formData.freeText||'']);
   ws1Data.push(['その他に気になるところ',formData.revisitOtherConcern||'']);
+  ws1Data.push(['','']);
+  ws1Data.push(['【本日のコース】',formData.courseName||'']);
+  ws1Data.push(['所要時間',formData.courseDuration?formData.courseDuration+'分':'']);
+  ws1Data.push(['通常料金',formData.coursePrice?Number(formData.coursePrice).toLocaleString('ja-JP')+'円':'']);
+  ws1Data.push(['回数券利用',formData.ticketAction||'']);
+  ws1Data.push(['回数券購入',formData.ticketPurchased?'あり':'なし']);
 
   const ws1=XLSX.utils.aoa_to_sheet(ws1Data);
   ws1['!cols']=[{wch:32},{wch:50}];
