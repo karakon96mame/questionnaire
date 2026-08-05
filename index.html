@@ -117,8 +117,11 @@ input,select,textarea{font:inherit;color:inherit}
 /* ── VAS Slider ── */
 .vas-wrap{background:var(--color-surface-2);border-radius:var(--radius-md);padding:var(--space-4)}
 .vas-value{text-align:center;font-size:var(--text-xl);font-weight:700;color:var(--color-primary);margin-bottom:var(--space-2)}
-.vas-labels{display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)}
-input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-color:var(--color-primary);cursor:pointer}
+.vas-labels{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:start;padding-inline:7px;font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-1)}
+.vas-labels>span:first-child{text-align:left}
+.vas-labels>span:nth-child(2){text-align:center}
+.vas-labels>span:last-child{text-align:right}
+input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var(--radius-full);accent-color:var(--color-primary);cursor:pointer}
 /* ── Checkbox / Radio grid ── */
 .check-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:var(--space-2)}
 .check-item{display:flex;align-items:center;gap:var(--space-2);padding:var(--space-2) var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-sm);cursor:pointer;font-size:var(--text-sm);transition:all 180ms}
@@ -334,7 +337,7 @@ input[type=range]{width:100%;height:6px;border-radius:var(--radius-full);accent-
       <div class="field">
         <label class="field-label" for="kana">ふりがな<span class="required">*</span></label>
         <input class="input-text" type="text" id="kana" placeholder="ひらがなで入力してください" autocomplete="off">
-        <div class="field-hint">ひらがなで入力してください。</div>
+        <div class="field-hint">お名前の入力に合わせて自動入力されます。必要に応じて修正してください。</div>
         <div class="field-error" id="err-kana">ふりがなを確認してください</div>
       </div>
       <!-- 生年月日 -->
@@ -683,6 +686,68 @@ let diseaseChecked = {}; // {partName: [disease,...]}
 let formData = {};
 let computedBirthYear = 0; // 西暦での年
 let selectedCourse = null;
+let kanaAutoState={composing:false,pendingReading:'',autoValue:'',manual:false,writing:false};
+
+function toHiragana(value){
+  return String(value||'')
+    .replace(/[ァ-ヶ]/g,function(char){return String.fromCharCode(char.charCodeAt(0)-0x60);})
+    .replace(/\u3000/g,' ');
+}
+
+function isKanaReading(value){
+  return !!String(value||'').trim() && /^[ぁ-ゖー\s]+$/.test(toHiragana(value));
+}
+
+function writeAutoKana(value){
+  if(kanaAutoState.manual) return;
+  const kana=document.getElementById('kana');
+  kanaAutoState.writing=true;
+  kana.value=toHiragana(value).replace(/\s+/g,' ').trimStart();
+  kanaAutoState.autoValue=kana.value;
+  kanaAutoState.writing=false;
+  if(kana.value.trim()) clearError('err-kana');
+}
+
+function resetKanaAutoFill(){
+  kanaAutoState={composing:false,pendingReading:'',autoValue:'',manual:false,writing:false};
+  const kana=document.getElementById('kana');
+  if(kana) kana.value='';
+}
+
+(function initKanaAutoFill(){
+  const nameInput=document.getElementById('name');
+  const kanaInput=document.getElementById('kana');
+  nameInput.addEventListener('compositionstart',function(){
+    kanaAutoState.composing=true;
+    kanaAutoState.pendingReading='';
+  });
+  nameInput.addEventListener('compositionupdate',function(event){
+    if(isKanaReading(event.data)) kanaAutoState.pendingReading=toHiragana(event.data);
+  });
+  nameInput.addEventListener('compositionend',function(event){
+    kanaAutoState.composing=false;
+    if(!kanaAutoState.manual && kanaAutoState.pendingReading){
+      writeAutoKana(kanaAutoState.autoValue+kanaAutoState.pendingReading);
+    }else if(!kanaAutoState.manual && isKanaReading(event.data)){
+      writeAutoKana(kanaAutoState.autoValue+toHiragana(event.data));
+    }
+    kanaAutoState.pendingReading='';
+  });
+  nameInput.addEventListener('input',function(){
+    if(kanaAutoState.composing || kanaAutoState.manual) return;
+    if(!this.value){writeAutoKana('');return;}
+    if(/\s$/.test(this.value) && kanaAutoState.autoValue && !/\s$/.test(kanaAutoState.autoValue)){
+      writeAutoKana(kanaAutoState.autoValue+' ');
+      return;
+    }
+    if(isKanaReading(this.value)) writeAutoKana(this.value);
+  });
+  kanaInput.addEventListener('input',function(){
+    if(kanaAutoState.writing) return;
+    this.value=toHiragana(this.value);
+    kanaAutoState.manual=this.value!==kanaAutoState.autoValue;
+  });
+})();
 
 function renderCourseMenu(){
   const grid=document.getElementById('courseMenuGrid');
@@ -1106,7 +1171,7 @@ function buildSymptomBlocks(){
         <div class="vas-wrap">
           <div class="vas-value" id="${id}_vasOnset_val">${d.vasOnset}/10</div>
           <input type="range" min="0" max="10" value="${d.vasOnset}" oninput="updateVAS('${p.name}','vasOnset','${id}_vasOnset_val',this.value,this)">
-          <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5<br>かなり辛い（痛い）</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）</span></div>
+          <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）</span></div>
         </div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">5</span>どんな辛さや痛みですか？（複数可）</div>
@@ -1124,7 +1189,7 @@ function buildSymptomBlocks(){
         <div class="vas-wrap">
           <div class="vas-value" id="${id}_vasNow_val">${d.vasNow}/10</div>
           <input type="range" min="0" max="10" value="${d.vasNow}" oninput="updateVAS('${p.name}','vasNow','${id}_vasNow_val',this.value,this)">
-          <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5<br>かなり辛い（痛い）</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）が続いている</span></div>
+          <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）が続いている</span></div>
         </div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">7</span>発症したときと比べて、今はどうですか？</div>
@@ -1471,6 +1536,7 @@ function startFirstVisit(){
   revisitNewComplaint=false;
   resetMenuSelection();
   resetVitalInputs();
+  resetKanaAutoFill();
   showStep(1);
 }
 
