@@ -180,6 +180,10 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
 .vital-unit{flex-shrink:0;color:var(--color-text-muted);font-size:var(--text-sm);font-weight:700}
 .blood-pressure-row{display:grid;grid-template-columns:1fr auto 1fr auto;align-items:center;gap:var(--space-2)}
 .blood-pressure-separator{font-size:var(--text-lg);font-weight:700;color:var(--color-text-muted)}
+.safety-note{padding:var(--space-4);border:1px solid #fcd34d;border-radius:var(--radius-md);background:var(--color-warn-bg);color:var(--color-text);font-size:var(--text-sm);line-height:1.7;margin-bottom:var(--space-4)}
+.contraindication-item{align-items:flex-start}
+.contraindication-item input{margin-top:.2rem}
+.conditional-field{display:none;margin-top:var(--space-2);grid-column:1/-1}
 @media(max-width:680px){.menu-grid{grid-template-columns:1fr}}
 @media(max-width:680px){.vital-grid{grid-template-columns:1fr}}
 /* ── Age/sex category ── */
@@ -291,7 +295,7 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
       <div class="lookup-status" id="revisitLookupStatus" role="status" aria-live="polite"></div>
     </div>
     <div class="nav-row">
-      <button class="btn-secondary" type="button" onclick="backToVisitType()">← 戻る</button>
+      <button class="btn-secondary" type="button" onclick="backFromRevisitSearch()">← 戻る</button>
       <button class="btn-primary" type="button" id="revisitSearchButton" onclick="searchRevisitPatient()">検索する　→</button>
     </div>
   </div>
@@ -444,12 +448,33 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
   <!-- =========== STEP 5: 既往歴・その他 =========== -->
   <div class="step-page" id="step5">
     <div class="card">
-      <h2 class="card-title">その他の情報</h2>
-      <p class="card-subtitle">過去の病歴やアレルギーなど、施術の参考になる情報をお知らせください。</p>
+      <h2 class="card-title">既往歴・その他の情報</h2>
+      <p class="card-subtitle">これまでの病気やけがについて、当てはまるものを選択してください。</p>
       <div class="field">
-        <label class="field-label">これまでにかかったことのある大きな病気やけが</label>
-        <textarea class="input-text" id="history" rows="3" placeholder="例：おたふくかぜ（30年前）、骨折（5年前）、高血圧（治療中）など"></textarea>
+        <label class="field-label">既往歴（複数選択可）</label>
+        <div class="check-grid" id="medicalHistoryChecks">
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="がん（悪性腫瘍）">がん（悪性腫瘍）</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="心疾患・心筋梗塞・不整脈">心疾患・心筋梗塞・不整脈</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="脳卒中・脳血管障害">脳卒中・脳血管障害</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="糖尿病">糖尿病</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="低血糖">低血糖</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="脱水">脱水</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="高血圧症">高血圧症</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="腎疾患・透析">腎疾患・透析</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="骨粗しょう症">骨粗しょう症</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="てんかん・けいれん発作">てんかん・けいれん発作</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="血液疾患・出血しやすい">血液疾患・出血しやすい</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="感染症">感染症</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="手術歴">手術歴</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="人工関節・体内金属">人工関節・体内金属</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="骨折" onchange="toggleHistoryDetails()">骨折</label>
+          <label class="check-item"><input type="checkbox" name="medicalHistory" value="特になし">特になし</label>
+        </div>
+        <div class="conditional-field" id="fractureDetailWrap"><input class="input-text" id="fractureDetail" type="text" placeholder="骨折した部位・時期をご記入ください"></div>
+        <textarea class="input-text" id="historyOther" rows="3" style="margin-top:var(--space-3)" placeholder="その他の病気・けが、発症時期、治療状況など"></textarea>
+        <div class="field-error" id="err-history">既往歴を1つ以上選択するか、その他欄へ入力してください。骨折を選んだ場合は部位・時期も必要です</div>
       </div>
+      <div id="extendedHistoryFields">
       <div class="field">
         <label class="field-label">現在飲んでいる薬・サプリメントなど</label>
         <textarea class="input-text" id="medicine" rows="2" placeholder="例：血圧の薬、睡眠薬、漢方薬、ハーブ、EPA/DHA/ビタミンEサプリ など"></textarea>
@@ -488,11 +513,31 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
         <label class="field-label">その他、伝えたいこと</label>
         <textarea class="input-text" id="freeText" rows="4" placeholder="気になることや伝えておきたいことを自由に書いてください"></textarea>
       </div>
+      </div>
     </div>
     <div class="nav-row">
       <button class="btn-secondary" onclick="goBack(5)">← 戻る</button>
       <button class="btn-primary" onclick="goNext(5)">次へ　→</button>
     </div>
+  </div>
+
+  <!-- =========== STEP 8: 干渉波治療器の安全確認 =========== -->
+  <div class="step-page" id="step8">
+    <div class="card">
+      <h2 class="card-title">干渉波・低周波治療器の安全確認</h2>
+      <p class="card-subtitle">安全に使用するため、当てはまる項目をすべて選択してください。</p>
+      <div class="safety-note"><strong>重要：</strong>この回答だけで使用可否を自動判定するものではありません。該当項目がある場合は、機器の添付文書と施術部位を確認してスタッフが判断します。</div>
+      <div class="check-grid" id="interferenceContraindicationChecks">
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="植込み電子医療機器（心臓ペースメーカーやシャントなど）を使用している">植込み電子医療機器（心臓ペースメーカーやシャントなど）を使用している</label>
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="脳梗塞や脳出血、てんかん発作が起きたことがある">脳梗塞や脳出血、てんかん発作が起きたことがある</label>
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="血液が固まりやすい、血が濃いなどと言われたことがある">血液が固まりやすい、血が濃いなどと言われたことがある</label>
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="ものに触れた感覚や温度が分かりづらい部分がある">ものに触れた感覚や温度が分かりづらい部分がある</label>
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="傷や皮膚炎、かぶれがある">傷や皮膚炎、かぶれがある</label>
+        <label class="check-item contraindication-item"><input type="checkbox" name="interferenceContraindication" value="該当なし">上記に該当するものはない</label>
+      </div>
+      <div class="field-error" id="err-interference">該当項目、または「該当なし」を選択してください</div>
+    </div>
+    <div class="nav-row"><button class="btn-secondary" onclick="goBack(8)">← 戻る</button><button class="btn-primary" onclick="goNext(8)">次へ　→</button></div>
   </div>
 
   <!-- =========== STEP 6: 本日のメニュー =========== -->
@@ -608,7 +653,7 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
 // ==============================
 // 定数
 // ==============================
-const TOTAL_STEPS = 7;
+const TOTAL_STEPS = 8;
 const RANK_COLORS = ['#dc2626','#ea6c00','#7c3aed','#2563eb','#16a34a'];
 const COURSE_MENU = [
   {name:'からだのコンビニコース',description:'主に治療器を用いたメンテナンスコース',duration:30,price:2200,ticketCount:1,ticketValue:2000},
@@ -1251,14 +1296,19 @@ function updateProgress(step){
   if(progressBar) progressBar.style.display = step > 0 ? 'block' : 'none';
   const steps=document.getElementById('progressSteps');
   const label=document.getElementById('progressLabel');
+  const convenience=isConvenienceCourse();
+  const flow=visitType==='再診'
+    ? (convenience?[6,2,5,8,7]:[6,3,4,5,8,7])
+    : (convenience?[1,6,2,5,8,7]:[1,6,2,3,4,5,8,7]);
+  const labels={1:'基本情報',2:'部位の選択',3:'考えられる症状',4:'詳しい症状',5:'既往歴',6:'本日のコース',7:'バイタル入力',8:'干渉波の安全確認'};
+  const position=flow.indexOf(step)+1;
   steps.innerHTML='';
-  for(let i=1;i<=TOTAL_STEPS;i++){
+  for(let i=1;i<=flow.length;i++){
     const d=document.createElement('div');
-    d.className='step-dot'+(i<step?' done':i===step?' active':'');
+    d.className='step-dot'+(i<position?' done':i===position?' active':'');
     steps.appendChild(d);
   }
-  const labels=['基本情報','部位の選択','考えられる症状','詳しい症状','その他の情報','本日のコース','バイタル入力'];
-  label.innerHTML=`ステップ <span>${step}/${TOTAL_STEPS}</span>　${labels[step-1]}`;
+  label.innerHTML=`ステップ <span>${position}/${flow.length}</span>　${labels[step]||''}`;
 }
 
 // ==============================
@@ -1296,7 +1346,56 @@ function validateStep(step){
     const valid=filled&&temperature>=30&&temperature<=45&&bpSys>=50&&bpSys<=300&&bpDia>=30&&bpDia<=200&&bpSys>bpDia&&pulse>=20&&pulse<=250&&spo2>=50&&spo2<=100;
     if(!valid){showError('err-vitals');ok=false;}else clearError('err-vitals');
   }
+  if(step===5){
+    const historySelected=document.querySelectorAll('input[name="medicalHistory"]:checked').length>0;
+    const historyOther=document.getElementById('historyOther').value.trim();
+    const fractureChecked=!!document.querySelector('input[name="medicalHistory"][value="骨折"]:checked');
+    const fractureDetail=document.getElementById('fractureDetail').value.trim();
+    if((!historySelected&&!historyOther)||(fractureChecked&&!fractureDetail)){showError('err-history');ok=false;}else clearError('err-history');
+  }
+  if(step===8){
+    const selected=document.querySelectorAll('input[name="interferenceContraindication"]:checked');
+    if(!selected.length){showError('err-interference');ok=false;}else clearError('err-interference');
+  }
   return ok;
+}
+
+function isConvenienceCourse(){return !!(selectedCourse&&selectedCourse.name==='からだのコンビニコース');}
+
+function captureCourseSelection(){
+  const ticketAction=document.querySelector('input[name="ticketAction"]:checked').value;
+  formData.courseName=selectedCourse.name;
+  formData.courseDuration=selectedCourse.duration;
+  formData.coursePrice=selectedCourse.price;
+  formData.courseTicketCount=selectedCourse.ticketCount;
+  formData.courseTicketValue=selectedCourse.ticketValue;
+  formData.ticketAction=ticketAction;
+  formData.ticketPurchased=ticketAction==='回数券を購入して使用';
+  formData.ticketUsed=ticketAction!=='使用しない（都度払い）';
+}
+
+function captureHistory(){
+  formData.medicalHistoryChecks=Array.from(document.querySelectorAll('input[name="medicalHistory"]:checked')).map(function(input){return input.value;});
+  formData.fractureDetail=document.getElementById('fractureDetail').value.trim();
+  formData.historyOther=document.getElementById('historyOther').value.trim();
+  const parts=formData.medicalHistoryChecks.filter(function(value){return value!=='特になし';});
+  if(formData.fractureDetail) parts.push('骨折部位・時期：'+formData.fractureDetail);
+  if(formData.historyOther) parts.push('その他：'+formData.historyOther);
+  formData.history=parts.length?parts.join(' / '):(formData.medicalHistoryChecks.includes('特になし')?'特になし':'');
+  formData.medicine=document.getElementById('medicine').value.trim();
+  formData.allergy=document.getElementById('allergy').value.trim();
+  formData.pregnant=document.getElementById('pregnant').value;
+  const referralValue=document.getElementById('referral').value;
+  const referralOther=document.getElementById('referralOther').value.trim();
+  formData.referral=referralValue==='その他'&&referralOther?'その他：'+referralOther:referralValue;
+  formData.freeText=document.getElementById('freeText').value.trim();
+}
+
+function captureInterferenceSafety(){
+  formData.interferenceContraindications=Array.from(document.querySelectorAll('input[name="interferenceContraindication"]:checked')).map(function(input){return input.value;});
+  delete formData.interferenceSensoryParts;
+  delete formData.interferenceSkinParts;
+  formData.interferenceSafetyText=formData.interferenceContraindications.join(' / ');
 }
 
 // ==============================
@@ -1322,17 +1421,30 @@ function goNext(from){
     formData.visitType=visitType || '初診';
     formData.previousSubmissionId=revisitRecord && revisitRecord.submissionId ? revisitRecord.submissionId : '';
   }
-  const next=from+1;
-  if(next===3) buildDiseaseBlocks();
-  if(next===4) buildSymptomBlocks();
-  showStep(next);
+  if(from===1){showStep(6);return;}
+  if(from===6){
+    captureCourseSelection();
+    configureHistoryStep();
+    if(visitType==='再診'){showRevisitSearch();return;}
+    showStep(2);return;
+  }
+  if(from===2){
+    if(isConvenienceCourse()){showStep(5);return;}
+    buildDiseaseBlocks();showStep(3);return;
+  }
+  if(from===3){buildSymptomBlocks();showStep(4);return;}
+  if(from===4){showStep(5);return;}
+  if(from===5){captureHistory();showStep(8);return;}
+  if(from===8){captureInterferenceSafety();showStep(7);return;}
 }
 function goBack(from){
-  if(from===3 && visitType==='再診'){
-    showRevisitConfirm();
-    return;
-  }
-  showStep(from-1);
+  if(from===6){if(visitType==='再診')backToVisitType();else showStep(1);return;}
+  if(from===2){if(visitType==='再診')showRevisitConfirm();else showStep(6);return;}
+  if(from===3){if(visitType==='再診')showRevisitConfirm();else showStep(2);return;}
+  if(from===4){showStep(3);return;}
+  if(from===5){if(isConvenienceCourse()){if(visitType==='再診')showRevisitConfirm();else showStep(2);}else showStep(4);return;}
+  if(from===8){showStep(5);return;}
+  if(from===7){showStep(8);return;}
 }
 function showStep(n){
   currentStep=n;
@@ -1347,29 +1459,13 @@ function showStep(n){
 // 確認画面
 // ==============================
 function showConfirm(){
-  if(!validateStep(6) || !validateStep(7)) return;
-  formData.history=document.getElementById('history').value.trim();
-  formData.medicine=document.getElementById('medicine').value.trim();
-  formData.allergy=document.getElementById('allergy').value.trim();
-  formData.pregnant=document.getElementById('pregnant').value;
-  const referralValue=document.getElementById('referral').value;
-  const referralOther=document.getElementById('referralOther').value.trim();
-  formData.referral=referralValue==='その他' && referralOther
-    ? 'その他：'+referralOther
-    : referralValue;
-  formData.freeText=document.getElementById('freeText').value.trim();
+  if(!validateStep(6) || !validateStep(7) || !validateStep(8)) return;
+  captureCourseSelection();
+  captureHistory();
+  captureInterferenceSafety();
   const revisitOtherConcern=document.getElementById('revisitOtherConcern');
   formData.revisitOtherConcern = revisitOtherConcern ? revisitOtherConcern.value.trim() : '';
   formData.diseaseOther='';
-  const ticketAction=document.querySelector('input[name="ticketAction"]:checked').value;
-  formData.courseName=selectedCourse.name;
-  formData.courseDuration=selectedCourse.duration;
-  formData.coursePrice=selectedCourse.price;
-  formData.courseTicketCount=selectedCourse.ticketCount;
-  formData.courseTicketValue=selectedCourse.ticketValue;
-  formData.ticketAction=ticketAction;
-  formData.ticketPurchased=ticketAction==='回数券を購入して使用';
-  formData.ticketUsed=ticketAction!=='使用しない（都度払い）';
   formData.vitals={
     temperature:document.getElementById('vitalTemperature').value,
     bpSys:document.getElementById('vitalBpSys').value,
@@ -1419,11 +1515,11 @@ function showConfirm(){
   });
   if(formData.revisitOtherConcern) dRows.push(['その他に気になるところ',formData.revisitOtherConcern,false]);
   if(formData.diseaseOther) dRows.push(['その他',formData.diseaseOther,false]);
-  if(dRows.length) container.appendChild(buildConfirmSection('チェックされた考えられる症状',dRows.map(r=>[r[0],r[1]])));
+  if(!isConvenienceCourse()&&dRows.length) container.appendChild(buildConfirmSection('チェックされた考えられる症状',dRows.map(r=>[r[0],r[1]])));
 
   // 詳しい症状
   const symRows=[];
-  selectedBodyParts.forEach(p=>{
+  if(!isConvenienceCourse()) selectedBodyParts.forEach(p=>{
     const d=symptomData[p.name]||{};
     const rfPatterns=PATTERN_OPTIONS.filter(o=>(d.pattern||[]).includes('安静にしているときに痛い')||false);
     const vasNow=d.vasNow||0;
@@ -1445,12 +1541,18 @@ function showConfirm(){
   const otherRows=[
     ['既往歴',formData.history||'未記入'],
     ['服薬中の薬',formData.medicine||'未記入'],
-    ['アレルギー',formData.allergy||'未記入'],
-    ['来院きっかけ',formData.referral||'未選択'],
-    ['その他コメント',formData.freeText||'未記入'],
+    ['アレルギー',formData.allergy||'未記入']
   ];
-  if(formData.gender!=='男性') otherRows.splice(3,0,['妊娠',formData.pregnant]);
+  if(formData.gender!=='男性') otherRows.push(['妊娠',formData.pregnant]);
+  otherRows.push(['来院きっかけ',formData.referral||'未選択']);
+  otherRows.push(['その他コメント',formData.freeText||'未記入']);
   container.appendChild(buildConfirmSection('その他の情報',otherRows));
+  const safetySelections=formData.interferenceContraindications||[];
+  const safetyHasConcern=safetySelections.some(function(value){return value!=='該当なし';});
+  if(safetyHasConcern) hasRedFlag=true;
+  container.appendChild(buildConfirmSection('干渉波・低周波治療器の安全確認',[
+    ['選択項目',formData.interferenceSafetyText||'未選択']
+  ]));
   container.appendChild(buildConfirmSection('本日のコース・回数券',[
     ['コース',formData.courseName],
     ['所要時間','約'+formData.courseDuration+'分'],
@@ -1514,6 +1616,40 @@ function resetMenuSelection(){
   renderCourseMenu();
 }
 
+function configureHistoryStep(){
+  document.getElementById('extendedHistoryFields').style.display='block';
+}
+
+function toggleHistoryDetails(){
+  const checked=Array.from(document.querySelectorAll('input[name="medicalHistory"]:checked')).some(function(input){return input.value==='骨折';});
+  document.getElementById('fractureDetailWrap').style.display=checked?'block':'none';
+  if(!checked) document.getElementById('fractureDetail').value='';
+}
+
+function resetClinicalSelections(){
+  document.querySelectorAll('input[name="medicalHistory"],input[name="interferenceContraindication"]').forEach(function(input){input.checked=false;});
+  ['fractureDetail','historyOther','medicine','allergy','freeText','referralOther'].forEach(function(id){const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('fractureDetailWrap').style.display='none';
+  document.getElementById('referral').value='';
+  document.getElementById('pregnant').value='なし・非該当';
+  clearError('err-interference');
+}
+
+(function initExclusiveClinicalChecks(){
+  document.querySelectorAll('input[name="medicalHistory"]').forEach(function(input){input.addEventListener('change',function(){
+    const none=this.value==='特になし';
+    if(this.checked&&none) document.querySelectorAll('input[name="medicalHistory"]').forEach(function(other){if(other.value!=='特になし')other.checked=false;});
+    if(this.checked&&!none){const noneInput=document.querySelector('input[name="medicalHistory"][value="特になし"]');if(noneInput)noneInput.checked=false;}
+    toggleHistoryDetails();
+  });});
+  document.querySelectorAll('input[name="interferenceContraindication"]').forEach(function(input){input.addEventListener('change',function(){
+    const none=this.value==='該当なし';
+    if(this.checked&&none) document.querySelectorAll('input[name="interferenceContraindication"]').forEach(function(other){if(other.value!=='該当なし')other.checked=false;});
+    if(this.checked&&!none){const noneInput=document.querySelector('input[name="interferenceContraindication"][value="該当なし"]');if(noneInput)noneInput.checked=false;}
+    clearError('err-interference');
+  });});
+})();
+
 function backToVisitType(){
   visitType='';
   revisitRecord=null;
@@ -1536,6 +1672,7 @@ function startFirstVisit(){
   revisitNewComplaint=false;
   resetMenuSelection();
   resetVitalInputs();
+  resetClinicalSelections();
   resetKanaAutoFill();
   showStep(1);
 }
@@ -1546,8 +1683,11 @@ function startRevisit(){
   revisitNewBodyParts=[];
   resetMenuSelection();
   resetVitalInputs();
-  showRevisitSearch();
+  resetClinicalSelections();
+  showStep(6);
 }
+
+function backFromRevisitSearch(){showStep(6);}
 
 function showRevisitSearch(){
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
@@ -1799,8 +1939,9 @@ function confirmRevisitPatient(){
   selectedBodyParts.forEach(function(part,index){part.rank=index+1;});
   revisitNewComplaint=revisitNewBodyParts.length>0;
   formData.revisitComplaintIds=selectedRecords.map(function(record){return record.complaintId||record.submissionId||'';}).filter(Boolean).join(',');
-  buildDiseaseBlocks();
-  showStep(3);
+  configureHistoryStep();
+  if(isConvenienceCourse()){showStep(5);return;}
+  buildDiseaseBlocks();showStep(3);
 }
 
 function showRevisitConfirm(){
@@ -1830,16 +1971,16 @@ function startNewRevisitComplaint(){
 function handlePersistentBack(){
   const active=document.querySelector('.step-page.active');
   if(!active) return;
-  if(active.id==='stepRevisitSearch'){backToVisitType();return;}
+  if(active.id==='stepRevisitSearch'){backFromRevisitSearch();return;}
   if(active.id==='stepRevisitConfirm'){showRevisitSearch();return;}
   if(active.id==='step1'){backToVisitType();return;}
   if(active.id==='step2'){
     if(visitType==='再診'){showRevisitConfirm();return;}
-    showStep(1);return;
+    showStep(6);return;
   }
   if(active.id==='step3' && visitType==='再診'){showRevisitConfirm();return;}
   if(active.id==='stepConfirm'){backFromConfirm();return;}
-  if(/^step[3-7]$/.test(active.id)){goBack(Number(active.id.replace('step','')));return;}
+  if(/^step[3-8]$/.test(active.id)){goBack(Number(active.id.replace('step','')));return;}
 }
 
 function updatePersistentBackButton(){
@@ -1900,7 +2041,33 @@ function setBasicFieldsFromFormData(f){
   hormoneTherapy=!!f.hormoneTherapy;
   document.getElementById('hormoneTherapy').checked=hormoneTherapy;
   document.getElementById('tel').value=f.tel||'';
+  setClinicalFieldsFromFormData(f);
   updatePregnancyVisibility();
+}
+
+function setClinicalFieldsFromFormData(f){
+  const historyChecks=Array.isArray(f.medicalHistoryChecks)?f.medicalHistoryChecks:[];
+  document.querySelectorAll('input[name="medicalHistory"]').forEach(function(input){input.checked=historyChecks.indexOf(input.value)!==-1;});
+  document.getElementById('fractureDetail').value=f.fractureDetail||'';
+  document.getElementById('historyOther').value=f.historyOther||(historyChecks.length?'':(f.history||''));
+  toggleHistoryDetails();
+  document.getElementById('medicine').value=f.medicine||'';
+  document.getElementById('allergy').value=f.allergy||'';
+  document.getElementById('pregnant').value=f.pregnant||'なし・非該当';
+  const referral=String(f.referral||'');
+  if(referral.indexOf('その他：')===0){document.getElementById('referral').value='その他';document.getElementById('referralOther').value=referral.replace(/^その他：/,'');document.getElementById('referralOtherWrap').style.display='block';}
+  else{document.getElementById('referral').value=referral;document.getElementById('referralOther').value='';document.getElementById('referralOtherWrap').style.display='none';}
+  document.getElementById('freeText').value=f.freeText||'';
+  const oldContraindicationMap={
+    '心臓ペースメーカー等の植込み型電子医療機器を使用している':'植込み電子医療機器（心臓ペースメーカーやシャントなど）を使用している',
+    '心臓ペースメーカーなど植込み型電子医療機器を使用している':'植込み電子医療機器（心臓ペースメーカーやシャントなど）を使用している',
+    '脳血管障害・てんかん歴があり頭部・顔面・頸部へ使用予定':'脳梗塞や脳出血、てんかん発作が起きたことがある',
+    '知覚障害・感覚低下のある部位':'ものに触れた感覚や温度が分かりづらい部分がある',
+    '皮膚の触覚や温度が鈍い部分がある':'ものに触れた感覚や温度が分かりづらい部分がある',
+    '傷・皮膚炎・電極によるかぶれがある部位':'傷や皮膚炎、かぶれがある'
+  };
+  const contraindications=(Array.isArray(f.interferenceContraindications)?f.interferenceContraindications:[]).map(function(value){return oldContraindicationMap[value]||value;});
+  document.querySelectorAll('input[name="interferenceContraindication"]').forEach(function(input){input.checked=contraindications.indexOf(input.value)!==-1;});
 }
 
 function formatBirthDisplayFromFormData(f){
@@ -2025,6 +2192,8 @@ function downloadExcel(){
 
   ws1Data.push(['','']);
   ws1Data.push(['既往歴',formData.history||'']);
+  ws1Data.push(['既往歴チェック',(formData.medicalHistoryChecks||[]).join(' / ')]);
+  ws1Data.push(['骨折詳細',formData.fractureDetail||'']);
   ws1Data.push(['服薬中の薬',formData.medicine||'']);
   ws1Data.push(['アレルギー',formData.allergy||'']);
   ws1Data.push(['妊娠の可能性',formData.pregnant||'']);
@@ -2037,6 +2206,8 @@ function downloadExcel(){
   ws1Data.push(['通常料金',formData.coursePrice?Number(formData.coursePrice).toLocaleString('ja-JP')+'円':'']);
   ws1Data.push(['回数券利用',formData.ticketAction||'']);
   ws1Data.push(['回数券購入',formData.ticketPurchased?'あり':'なし']);
+  ws1Data.push(['','']);
+  ws1Data.push(['【干渉波・低周波治療器の安全確認】',formData.interferenceSafetyText||'']);
   ws1Data.push(['','']);
   ws1Data.push(['【本日のバイタル】','']);
   ws1Data.push(['体温',formData.vitals&&formData.vitals.temperature?formData.vitals.temperature+' ℃':'']);
