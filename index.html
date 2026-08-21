@@ -414,11 +414,12 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
     </div>
   </div>
 
-  <!-- =========== STEP 3: 考えられる症状 =========== -->
+  <!-- =========== STEP 3: 症状についての確認 =========== -->
   <div class="step-page" id="step3">
     <div class="card">
-      <h2 class="card-title">考えられる症状の確認</h2>
-      <p class="card-subtitle">選択された部位と年齢・性別から、よく見られる症状や病気を示します。当てはまるものがあればチェックしてください。</p>
+      <h2 class="card-title">症状についての確認</h2>
+      <p class="card-subtitle">お身体の状態をより詳しく確認するため、特にお聞きしたい症状を表示しています。当てはまるものだけ選択してください。</p>
+      <div class="safety-note"><strong>当てはまる項目がない場合：</strong>何も選択せず、そのまま「次へ」進んでいただけます。選択肢にはないけれど、気になる症状があるという方は、「その他」にご記入ください。</div>
       <div id="ageSexBadge"></div>
       <div id="diseaseBlocks"></div>
       <div id="revisitOtherConcernWrap" style="display:none;margin-top:var(--space-5)">
@@ -1003,7 +1004,7 @@ function renderChips(){
 }
 
 // ==============================
-// STEP 3: 考えられる症状ブロック生成
+// STEP 3: 症状についての確認ブロック生成
 // ==============================
 function mergeSystemicDiseases(grp){
   if(Array.isArray(grp)){
@@ -1112,9 +1113,9 @@ function buildDiseaseBox(p, diseases, redFlags){
     </label>`;
   }).join('');
   div.innerHTML=`
-    <div class="section-header" style="background:${color}">${rankChar} ${p.name} — 考えられる症状</div>
+    <div class="section-header" style="background:${color}">${rankChar} ${p.name} — 当てはまる症状</div>
     <div class="section-body">
-      <div class="sub-label">当てはまるものにチェック（複数可）</div>
+      <div class="sub-label">当てはまるものだけチェックしてください（複数可・該当なしは未選択でOK）</div>
       <div class="check-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))">${checksHTML}</div>
     </div>`;
   return div;
@@ -1300,7 +1301,7 @@ function updateProgress(step){
   const flow=visitType==='再診'
     ? (convenience?[6,2,5,8,7]:[6,3,4,5,8,7])
     : (convenience?[1,6,2,5,8,7]:[1,6,2,3,4,5,8,7]);
-  const labels={1:'基本情報',2:'部位の選択',3:'考えられる症状',4:'詳しい症状',5:'既往歴',6:'本日のコース',7:'バイタル入力',8:'干渉波の安全確認'};
+  const labels={1:'基本情報',2:'部位の選択',3:'症状についての確認',4:'詳しい症状',5:'既往歴',6:'本日のコース',7:'バイタル入力',8:'干渉波の安全確認'};
   const position=flow.indexOf(step)+1;
   steps.innerHTML='';
   for(let i=1;i<=flow.length;i++){
@@ -1499,7 +1500,7 @@ function showConfirm(){
     ['選択部位',selectedBodyParts.map((p,i)=>'①②③④⑤'[i]+' '+p.name+(p.otherText?'（'+p.otherText+'）':'')).join('、')]
   ]));
 
-  // 考えられる症状チェック
+  // 症状についての確認
   const dRows=[];
   selectedBodyParts.forEach(p=>{
     const checked=(diseaseChecked[p.name]||[]);
@@ -1515,7 +1516,7 @@ function showConfirm(){
   });
   if(formData.revisitOtherConcern) dRows.push(['その他に気になるところ',formData.revisitOtherConcern,false]);
   if(formData.diseaseOther) dRows.push(['その他',formData.diseaseOther,false]);
-  if(!isConvenienceCourse()&&dRows.length) container.appendChild(buildConfirmSection('チェックされた考えられる症状',dRows.map(r=>[r[0],r[1]])));
+  if(!isConvenienceCourse()&&dRows.length) container.appendChild(buildConfirmSection('選択した症状',dRows.map(r=>[r[0],r[1]])));
 
   // 詳しい症状
   const symRows=[];
@@ -2177,7 +2178,7 @@ function downloadExcel(){
 
   selectedBodyParts.forEach(p=>{
     ws1Data.push(['','']);
-    ws1Data.push([`【${p.name}】考えられる症状`,(diseaseChecked[p.name]||[]).join(' / ')||'選択なし']);
+    ws1Data.push([`【${p.name}】選択した症状`,(diseaseChecked[p.name]||[]).join(' / ')||'選択なし']);
     const d=symptomData[p.name]||{};
     ws1Data.push([`【${p.name}】①いつから`,d.onset||'']);
     ws1Data.push([`【${p.name}】②状況`,(d.situation||[]).join(' / ')+(d.situationOther?(' / '+d.situationOther):'')]);
