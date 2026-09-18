@@ -219,6 +219,18 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
 .revisit-new-body-btn.already-loaded{border-style:dashed;color:var(--color-text-faint);cursor:not-allowed;opacity:.72}
 .revisit-selection-summary{margin-top:var(--space-4);padding:var(--space-3);border-radius:var(--radius-md);background:var(--color-surface-2);font-size:var(--text-sm);line-height:1.7}
 .revisit-note{padding:var(--space-3) var(--space-4);border-radius:var(--radius-md);background:var(--color-primary-light);color:var(--color-primary);font-size:var(--text-sm);font-weight:700;margin-bottom:var(--space-4)}
+.revisit-skip-panel{display:none;margin-top:var(--space-5);padding:var(--space-4);border:1.5px solid var(--color-primary);border-radius:var(--radius-md);background:var(--color-primary-light)}
+.revisit-skip-panel.show{display:block}
+.revisit-skip-panel p{margin:0 0 var(--space-3);color:var(--color-text);font-size:var(--text-sm);line-height:1.7}
+.revisit-skip-btn{width:100%;padding:12px 18px;border-radius:var(--radius-md);background:var(--color-primary);color:#fff;font-weight:700;text-align:center}
+.revisit-skip-btn:hover{filter:brightness(.95)}
+.submit-loading-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:var(--space-5);background:rgba(15,23,42,.72);backdrop-filter:blur(4px)}
+.submit-loading-overlay.show{display:flex}
+.submit-loading-card{width:min(420px,100%);padding:var(--space-7);border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-lg);text-align:center}
+.submit-spinner{width:52px;height:52px;margin:0 auto var(--space-5);border:5px solid var(--color-border);border-top-color:var(--color-primary);border-radius:50%;animation:submit-spin .8s linear infinite}
+.submit-loading-title{font-size:var(--text-xl);font-weight:700;color:var(--color-text);margin-bottom:var(--space-2)}
+.submit-loading-text{font-size:var(--text-sm);line-height:1.7;color:var(--color-text-muted)}
+@keyframes submit-spin{to{transform:rotate(360deg)}}
 .persistent-back{position:fixed;top:76px;left:max(var(--space-4),calc((100vw - 680px)/2 - 88px));z-index:90;padding:var(--space-2) var(--space-4);border:1.5px solid var(--color-border);border-radius:var(--radius-full);background:var(--color-surface);color:var(--color-primary);font-size:var(--text-sm);font-weight:700;box-shadow:var(--shadow-md)}
 .persistent-back:hover{border-color:var(--color-primary);background:var(--color-primary-light)}
 @media(max-width:900px){.persistent-back{top:auto;bottom:var(--space-4);left:var(--space-4)}}
@@ -451,6 +463,10 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
     <div class="card">
       <h2 class="card-title">既往歴・その他の情報</h2>
       <p class="card-subtitle">これまでの病気やけがについて、当てはまるものを選択してください。</p>
+      <div class="revisit-skip-panel" id="revisitUnchangedClinicalPanel">
+        <p><strong>前回から変更がない方</strong><br>前回の既往歴・服薬・アレルギーなどの情報と、低周波治療機器の安全確認内容をそのまま引き継ぎます。</p>
+        <button class="revisit-skip-btn" type="button" onclick="skipUnchangedClinicalSteps()">前回から変更なし（バイタル入力へ）</button>
+      </div>
       <div class="field">
         <label class="field-label">既往歴（複数選択可）</label>
         <div class="check-grid" id="medicalHistoryChecks">
@@ -633,6 +649,14 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
   </div>
 </main>
 
+<div class="submit-loading-overlay" id="submitLoadingOverlay" role="alert" aria-live="assertive" aria-hidden="true">
+  <div class="submit-loading-card">
+    <div class="submit-spinner" aria-hidden="true"></div>
+    <div class="submit-loading-title">問診票を送信しています</div>
+    <div class="submit-loading-text">保存が完了するまで、この画面を閉じたり戻ったりせず、そのままお待ちください。</div>
+  </div>
+</div>
+
 <script>
 // ==============================
 // テーマ
@@ -732,6 +756,7 @@ let diseaseChecked = {}; // {partName: [disease,...]}
 let formData = {};
 let computedBirthYear = 0; // 西暦での年
 let selectedCourse = null;
+let skippedClinicalReview = false;
 let kanaAutoState={composing:false,pendingReading:'',autoValue:'',manual:false,writing:false};
 
 function toHiragana(value){
@@ -1435,8 +1460,8 @@ function goNext(from){
   }
   if(from===3){buildSymptomBlocks();showStep(4);return;}
   if(from===4){showStep(5);return;}
-  if(from===5){captureHistory();showStep(8);return;}
-  if(from===8){captureInterferenceSafety();showStep(7);return;}
+  if(from===5){captureHistory();skippedClinicalReview=false;showStep(8);return;}
+  if(from===8){captureInterferenceSafety();skippedClinicalReview=false;showStep(7);return;}
 }
 function goBack(from){
   if(from===6){if(visitType==='再診')backToVisitType();else showStep(1);return;}
@@ -1445,7 +1470,7 @@ function goBack(from){
   if(from===4){showStep(3);return;}
   if(from===5){if(isConvenienceCourse()){if(visitType==='再診')showRevisitConfirm();else showStep(2);}else showStep(4);return;}
   if(from===8){showStep(5);return;}
-  if(from===7){showStep(8);return;}
+  if(from===7){showStep(skippedClinicalReview?5:8);return;}
 }
 function showStep(n){
   currentStep=n;
@@ -1460,10 +1485,12 @@ function showStep(n){
 // 確認画面
 // ==============================
 function showConfirm(){
-  if(!validateStep(6) || !validateStep(7) || !validateStep(8)) return;
+  if(!validateStep(6) || !validateStep(7) || (!skippedClinicalReview && !validateStep(8))) return;
   captureCourseSelection();
-  captureHistory();
-  captureInterferenceSafety();
+  if(!skippedClinicalReview){
+    captureHistory();
+    captureInterferenceSafety();
+  }
   const revisitOtherConcern=document.getElementById('revisitOtherConcern');
   formData.revisitOtherConcern = revisitOtherConcern ? revisitOtherConcern.value.trim() : '';
   formData.diseaseOther='';
@@ -1619,6 +1646,14 @@ function resetMenuSelection(){
 
 function configureHistoryStep(){
   document.getElementById('extendedHistoryFields').style.display='block';
+  const panel=document.getElementById('revisitUnchangedClinicalPanel');
+  if(panel) panel.classList.toggle('show',visitType==='再診');
+}
+
+function skipUnchangedClinicalSteps(){
+  if(visitType!=='再診') return;
+  skippedClinicalReview=true;
+  showStep(7);
 }
 
 function toggleHistoryDetails(){
@@ -1658,6 +1693,7 @@ function backToVisitType(){
   revisitSelectedIndexes=[];
   revisitNewComplaint=false;
   revisitNewBodyParts=[];
+  skippedClinicalReview=false;
   document.querySelectorAll('.step-page').forEach(p=>p.classList.remove('active'));
   document.getElementById('stepVisitType').classList.add('active');
   updateProgress(0);
@@ -1671,6 +1707,7 @@ function startFirstVisit(){
   revisitMatches=[];
   revisitSelectedIndexes=[];
   revisitNewComplaint=false;
+  skippedClinicalReview=false;
   resetMenuSelection();
   resetVitalInputs();
   resetClinicalSelections();
@@ -1682,6 +1719,7 @@ function startRevisit(){
   visitType='再診';
   revisitNewComplaint=false;
   revisitNewBodyParts=[];
+  skippedClinicalReview=false;
   resetMenuSelection();
   resetVitalInputs();
   resetClinicalSelections();
@@ -2090,6 +2128,21 @@ function escapeHtml(value){
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby1heaMiuRdOpE1tuxYVEN89FrAfee6peQuVkIvU0AoYNfvK91cfSJNDk0-pDKsL983Pw/exec';
 let isSubmitting = false;
 
+function setSubmittingUi(active){
+  const overlay=document.getElementById('submitLoadingOverlay');
+  if(overlay){
+    overlay.classList.toggle('show',active);
+    overlay.setAttribute('aria-hidden',active?'false':'true');
+  }
+  document.body.style.overflow=active?'hidden':'';
+}
+
+window.addEventListener('beforeunload',function(event){
+  if(!isSubmitting) return;
+  event.preventDefault();
+  event.returnValue='';
+});
+
 function createSubmissionId(){
   if(window.crypto && typeof window.crypto.randomUUID === 'function'){
     return window.crypto.randomUUID();
@@ -2123,6 +2176,7 @@ async function finalSubmit(){
   }
 
   isSubmitting=true;
+  setSubmittingUi(true);
   button.disabled=true;
   button.textContent='送信中…';
   status.textContent='回答を保存しています。画面を閉じないでください。';
@@ -2149,6 +2203,7 @@ async function finalSubmit(){
     button.textContent='もう一度送信する　→';
   }finally{
     isSubmitting=false;
+    setSubmittingUi(false);
   }
 }
 
