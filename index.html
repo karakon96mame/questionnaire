@@ -224,6 +224,12 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
 .revisit-skip-panel p{margin:0 0 var(--space-3);color:var(--color-text);font-size:var(--text-sm);line-height:1.7}
 .revisit-skip-btn{width:100%;padding:12px 18px;border-radius:var(--radius-md);background:var(--color-primary);color:#fff;font-weight:700;text-align:center}
 .revisit-skip-btn:hover{filter:brightness(.95)}
+.initial-symptom-summary{margin-top:var(--space-4);padding:var(--space-4);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-surface-2)}
+.initial-symptom-summary-title{font-size:var(--text-sm);font-weight:700;color:var(--color-primary);margin-bottom:var(--space-3)}
+.initial-symptom-row{display:grid;grid-template-columns:minmax(110px,150px) 1fr;gap:var(--space-3);padding:var(--space-2) 0;border-top:1px solid var(--color-divider);font-size:var(--text-sm);line-height:1.6}
+.initial-symptom-row:first-of-type{border-top:0}
+.initial-symptom-key{font-weight:700;color:var(--color-text-muted)}
+.initial-symptom-value{color:var(--color-text)}
 .submit-loading-overlay{position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;padding:var(--space-5);background:rgba(15,23,42,.72);backdrop-filter:blur(4px)}
 .submit-loading-overlay.show{display:flex}
 .submit-loading-card{width:min(420px,100%);padding:var(--space-7);border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-lg);text-align:center}
@@ -752,6 +758,7 @@ let pendingDiseaseChecked = null;
 let selectedGender = '';
 let selectedBodyParts = []; // [{name, rank}] max 5
 let symptomData = {}; // {partName: {onset, situation, cause, quality, vasNow, vasOnset, change, pattern, free}}
+let initialSymptomData = {}; // 再診時に参照する各愁訴の初回回答
 let diseaseChecked = {}; // {partName: [disease,...]}
 let formData = {};
 let computedBirthYear = 0; // 西暦での年
@@ -1208,53 +1215,54 @@ function buildSymptomBlocks(){
     div.className='section-card';
     // 時系列ステップ番号スタイル
     const stepStyle='display:flex;align-items:center;gap:var(--space-2);font-weight:700;font-size:var(--text-sm);color:var(--color-text);margin-top:var(--space-5);margin-bottom:var(--space-2);padding:var(--space-2) var(--space-3);background:var(--color-surface-2);border-radius:var(--radius-sm);border-left:3px solid '+color;
-
-    div.innerHTML=`
-      <div class="section-header" style="background:${color}">${rankChar} ${p.name} の詳しい症状</div>
-      <div class="section-body">
-
+    const initial=initialSymptomData[p.name]||null;
+    const isExistingRevisit=visitType==='再診'&&!!initial;
+    if(isExistingRevisit){
+      ['onset','situation','situationOther','cause','causeOther','vasOnset','quality','qualityOther'].forEach(function(key){
+        if(initial[key]!==undefined) d[key]=JSON.parse(JSON.stringify(initial[key]));
+      });
+    }
+    const initialQualityText=initial
+      ? (Array.isArray(initial.quality)?initial.quality.join('、'):'')+(initial.qualityOther?'（'+initial.qualityOther+'）':'')
+      : '';
+    const firstQuestionsHtml=isExistingRevisit
+      ? `<div class="initial-symptom-summary">
+          <div class="initial-symptom-summary-title">初回時に入力された内容</div>
+          <div class="initial-symptom-row"><span class="initial-symptom-key">④ 発症時のVAS</span><span class="initial-symptom-value">${initial.vasOnset!=null?escapeHtml(initial.vasOnset)+'/10':'未入力'}</span></div>
+          <div class="initial-symptom-row"><span class="initial-symptom-key">⑤ 辛さ・痛みの性質</span><span class="initial-symptom-value">${escapeHtml(initialQualityText||'未入力')}</span></div>
+        </div>`
+      : `
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">1</span>いつ頃から始まりましたか？</div>
         <div class="check-grid">${ONSET_OPTIONS.map(o=>`<label class="check-item"><input type="radio" name="${id}_onset" value="${o}" onchange="setSym('${p.name}','onset','${o}')" ${d.onset===o?'checked':''}>${o}</label>`).join('')}</div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">2</span>どんな状況のときになりましたか？（複数可）</div>
         <div class="check-grid">
           ${SITUATION_OPTIONS.filter(o=>!o.startsWith('その他')).map(o=>`<label class="check-item"><input type="checkbox" value="${o}" onchange="toggleSym('${p.name}','situation','${o}',this.checked)" ${(d.situation||[]).includes(o)?'checked':''}>${o}</label>`).join('')}
-          <label class="check-item" style="grid-column:1/-1">
-            <input type="checkbox" value="その他" onchange="toggleSym('${p.name}','situation','その他',this.checked);document.getElementById('${id}_situation_other_wrap').style.display=this.checked?'block':'none'" ${(d.situation||[]).includes('その他')?'checked':''}>その他
-          </label>
-          <div id="${id}_situation_other_wrap" style="grid-column:1/-1;display:${(d.situation||[]).includes('その他')?'block':'none'};margin-top:4px">
-            <input type="text" class="input-text" placeholder="状況を自由記入" oninput="setSym('${p.name}','situationOther',this.value)" value="${d.situationOther||''}">
-          </div>
+          <label class="check-item" style="grid-column:1/-1"><input type="checkbox" value="その他" onchange="toggleSym('${p.name}','situation','その他',this.checked);document.getElementById('${id}_situation_other_wrap').style.display=this.checked?'block':'none'" ${(d.situation||[]).includes('その他')?'checked':''}>その他</label>
+          <div id="${id}_situation_other_wrap" style="grid-column:1/-1;display:${(d.situation||[]).includes('その他')?'block':'none'};margin-top:4px"><input type="text" class="input-text" placeholder="状況を自由記入" oninput="setSym('${p.name}','situationOther',this.value)" value="${d.situationOther||''}"></div>
         </div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">3</span>原因・きっかけ（複数可）</div>
         <div class="check-grid">
           ${CAUSE_OPTIONS.filter(o=>!o.startsWith('その他')).map(o=>`<label class="check-item"><input type="checkbox" value="${o}" onchange="toggleSym('${p.name}','cause','${o}',this.checked)" ${(d.cause||[]).includes(o)?'checked':''}>${o}</label>`).join('')}
-          <label class="check-item" style="grid-column:1/-1">
-            <input type="checkbox" value="その他" onchange="toggleSym('${p.name}','cause','その他',this.checked);document.getElementById('${id}_cause_other_wrap').style.display=this.checked?'block':'none'" ${(d.cause||[]).includes('その他')?'checked':''}>その他
-          </label>
-          <div id="${id}_cause_other_wrap" style="grid-column:1/-1;display:${(d.cause||[]).includes('その他')?'block':'none'};margin-top:4px">
-            <input type="text" class="input-text" placeholder="原因・きっかけを自由記入" oninput="setSym('${p.name}','causeOther',this.value)" value="${d.causeOther||''}">
-          </div>
+          <label class="check-item" style="grid-column:1/-1"><input type="checkbox" value="その他" onchange="toggleSym('${p.name}','cause','その他',this.checked);document.getElementById('${id}_cause_other_wrap').style.display=this.checked?'block':'none'" ${(d.cause||[]).includes('その他')?'checked':''}>その他</label>
+          <div id="${id}_cause_other_wrap" style="grid-column:1/-1;display:${(d.cause||[]).includes('その他')?'block':'none'};margin-top:4px"><input type="text" class="input-text" placeholder="原因・きっかけを自由記入" oninput="setSym('${p.name}','causeOther',this.value)" value="${d.causeOther||''}"></div>
         </div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">4</span>発症した直後の辛さ（痛み）の程度（VAS）</div>
-        <div class="vas-wrap">
-          <div class="vas-value" id="${id}_vasOnset_val">${d.vasOnset}/10</div>
-          <input type="range" min="0" max="10" value="${d.vasOnset}" oninput="updateVAS('${p.name}','vasOnset','${id}_vasOnset_val',this.value,this)">
-          <div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）</span></div>
-        </div>
+        <div class="vas-wrap"><div class="vas-value" id="${id}_vasOnset_val">${d.vasOnset}/10</div><input type="range" min="0" max="10" value="${d.vasOnset}" oninput="updateVAS('${p.name}','vasOnset','${id}_vasOnset_val',this.value,this)"><div class="vas-labels"><span>0<br>まったく辛く（痛く）ない</span><span style="text-align:center">5</span><span style="text-align:right">10<br>想像最大の辛さ（痛み）</span></div></div>
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">5</span>どんな辛さや痛みですか？（複数可）</div>
         <div class="check-grid">
           ${QUALITY_OPTIONS.filter(o=>!o.startsWith('その他')).map(o=>`<label class="check-item"><input type="checkbox" value="${o}" onchange="toggleSym('${p.name}','quality','${o}',this.checked)" ${(d.quality||[]).includes(o)?'checked':''}>${o}</label>`).join('')}
-          <label class="check-item" style="grid-column:1/-1">
-            <input type="checkbox" value="その他" onchange="toggleSym('${p.name}','quality','その他',this.checked);document.getElementById('${id}_quality_other_wrap').style.display=this.checked?'block':'none'" ${(d.quality||[]).includes('その他')?'checked':''}>その他
-          </label>
-          <div id="${id}_quality_other_wrap" style="grid-column:1/-1;display:${(d.quality||[]).includes('その他')?'block':'none'};margin-top:4px">
-            <input type="text" class="input-text" placeholder="痛みの感じを自由記入" oninput="setSym('${p.name}','qualityOther',this.value)" value="${d.qualityOther||''}">
-          </div>
-        </div>
+          <label class="check-item" style="grid-column:1/-1"><input type="checkbox" value="その他" onchange="toggleSym('${p.name}','quality','その他',this.checked);document.getElementById('${id}_quality_other_wrap').style.display=this.checked?'block':'none'" ${(d.quality||[]).includes('その他')?'checked':''}>その他</label>
+          <div id="${id}_quality_other_wrap" style="grid-column:1/-1;display:${(d.quality||[]).includes('その他')?'block':'none'};margin-top:4px"><input type="text" class="input-text" placeholder="痛みの感じを自由記入" oninput="setSym('${p.name}','qualityOther',this.value)" value="${d.qualityOther||''}"></div>
+        </div>`;
+
+    div.innerHTML=`
+      <div class="section-header" style="background:${color}">${rankChar} ${p.name} の詳しい症状</div>
+      <div class="section-body">
+        ${firstQuestionsHtml}
 
         <div style="${stepStyle}"><span style="background:${color};color:#fff;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;">6</span>今の辛さ・痛みの強さ（VAS）</div>
         <div class="vas-wrap">
@@ -1703,6 +1711,7 @@ function backToVisitType(){
 
 function startFirstVisit(){
   visitType='初診';
+  initialSymptomData={};
   revisitRecord=null;
   revisitMatches=[];
   revisitSelectedIndexes=[];
@@ -1717,6 +1726,7 @@ function startFirstVisit(){
 
 function startRevisit(){
   visitType='再診';
+  initialSymptomData={};
   revisitNewComplaint=false;
   revisitNewBodyParts=[];
   skippedClinicalReview=false;
@@ -1943,7 +1953,12 @@ function getSelectedRevisitRecords(){
   return revisitSelectedIndexes
     .map(function(index){ return revisitMatches[index]; })
     .filter(Boolean)
-    .map(function(item){ return item.latestRecord || item; });
+    .map(function(item){
+      const record=JSON.parse(JSON.stringify(item.latestRecord||item));
+      const firstRecord=item.firstRecord||item.latestRecord||item;
+      record.initialSymptomData=JSON.parse(JSON.stringify(firstRecord.symptomData||{}));
+      return record;
+    });
 }
 
 function formatRevisitDate(value){
@@ -2045,6 +2060,7 @@ function applyRevisitRecords(records){
   setBasicFieldsFromFormData(f);
   selectedBodyParts=[];
   symptomData={};
+  initialSymptomData={};
   pendingDiseaseChecked={};
   records.forEach(function(record){
     const parts=JSON.parse(JSON.stringify(record.selectedBodyParts || [])).filter(function(p){return p && p.name;});
@@ -2054,6 +2070,7 @@ function applyRevisitRecords(records){
       selectedBodyParts.push(part);
     });
     Object.assign(symptomData, JSON.parse(JSON.stringify(record.symptomData || {})));
+    Object.assign(initialSymptomData, JSON.parse(JSON.stringify(record.initialSymptomData || record.symptomData || {})));
     Object.assign(pendingDiseaseChecked, JSON.parse(JSON.stringify(record.diseaseChecked || {})));
   });
   renderBodyGrid();
