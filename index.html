@@ -213,6 +213,10 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
 .patient-confirm-row{display:grid;grid-template-columns:120px 1fr;gap:var(--space-3);padding:var(--space-3);border:1px solid var(--color-border);border-radius:var(--radius-md);background:var(--color-bg);font-size:var(--text-sm)}
 .patient-confirm-key{color:var(--color-text-muted);font-weight:700}
 .patient-confirm-val{color:var(--color-text);font-weight:600}
+.revisit-profile-panel{display:none;margin-top:var(--space-5);padding:var(--space-4);border:1.5px solid #f59e0b;border-radius:var(--radius-md);background:var(--color-warn-bg)}
+.revisit-profile-panel.show{display:block}
+.revisit-profile-title{font-weight:700;color:var(--color-text);margin-bottom:var(--space-2)}
+.revisit-profile-text{font-size:var(--text-sm);line-height:1.7;color:var(--color-text-muted);margin-bottom:var(--space-4)}
 .revisit-new-panel{display:none;margin-top:var(--space-5);padding-top:var(--space-5);border-top:1px solid var(--color-divider)}
 .revisit-new-panel.show{display:block}
 .revisit-new-body-btn.selected{border-color:var(--color-primary);background:var(--color-primary-light);color:var(--color-primary)}
@@ -324,6 +328,20 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
         <h1 class="card-title">今回気になっている部位を選択</h1>
         <p class="card-subtitle">患者様の過去の受診情報を表示します。どの部位の続きかを選択してください。</p>
       <div class="patient-confirm-list" id="revisitPatientSummary"></div>
+      <div class="revisit-profile-panel" id="revisitMissingProfilePanel">
+        <div class="revisit-profile-title">基本情報の追加登録をお願いします</div>
+        <div class="revisit-profile-text">過去の問診票に「職業」または「住所」が登録されていません。今回入力した内容は、次回以降の患者情報にも引き継がれます。</div>
+        <div class="field" id="revisitOccupationWrap">
+          <label class="field-label" for="revisitOccupation">職業<span class="required">*</span></label>
+          <input class="input-text" type="text" id="revisitOccupation" placeholder="例：会社員、教員、自営業、主婦・主夫など" autocomplete="organization-title">
+          <div class="field-error" id="err-revisit-occupation">職業を入力してください</div>
+        </div>
+        <div class="field" id="revisitAddressWrap">
+          <label class="field-label" for="revisitAddress">住所<span class="required">*</span></label>
+          <textarea class="input-text" id="revisitAddress" rows="3" placeholder="都道府県からご入力ください" autocomplete="street-address"></textarea>
+          <div class="field-error" id="err-revisit-address">住所を入力してください</div>
+        </div>
+      </div>
       <div class="revisit-new-panel" id="revisitNewComplaintPanel">
         <h2 class="card-title" style="font-size:var(--text-lg)">新しく気になる部位を追加</h2>
         <p class="card-subtitle">上記の過去データは必要なものだけチェックし、今回新たに気になる部位を下から追加してください。合計5か所まで選択できます。</p>
@@ -409,6 +427,16 @@ input[type=range]{display:block;width:100%;height:6px;margin:0;border-radius:var
       <div class="field">
         <label class="field-label" for="tel">電話番号</label>
         <input class="input-text" type="tel" id="tel" placeholder="例：090-1234-5678">
+      </div>
+      <div class="field">
+        <label class="field-label" for="occupation">職業<span class="required">*</span></label>
+        <input class="input-text" type="text" id="occupation" placeholder="例：会社員、教員、自営業、主婦・主夫など" autocomplete="organization-title">
+        <div class="field-error" id="err-occupation">職業を入力してください</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="address">住所<span class="required">*</span></label>
+        <textarea class="input-text" id="address" rows="3" placeholder="都道府県からご入力ください" autocomplete="street-address"></textarea>
+        <div class="field-error" id="err-address">住所を入力してください</div>
       </div>
     </div>
     <div class="nav-row"><button class="btn-primary" onclick="goNext(1)">次へ　→</button></div>
@@ -750,6 +778,7 @@ const RED_FLAG_KEYWORDS = ['麻痺','脱臼','骨折','激しい','激痛','突�
 let currentStep = 0;
 let visitType = '';
 let revisitRecord = null;
+let revisitPatientProfile = null;
 let revisitMatches = [];
 let revisitSelectedIndexes = [];
 let revisitNewComplaint = false;
@@ -1361,6 +1390,8 @@ function validateStep(step){
     const dy=document.getElementById('bd-day').value;
     if(!era||!computedBirthYear||!mo||!dy){showError('err-bd');ok=false;}else clearError('err-bd');
     if(!selectedGender){showError('err-gender');ok=false;}else clearError('err-gender');
+    if(!document.getElementById('occupation').value.trim()){showError('err-occupation');ok=false;}else clearError('err-occupation');
+    if(!document.getElementById('address').value.trim()){showError('err-address');ok=false;}else clearError('err-address');
   }
   if(step===2){
     if(selectedBodyParts.length===0){showError('err-body');ok=false;}else clearError('err-body');
@@ -1451,6 +1482,8 @@ function goNext(from){
       : selectedGender;
     formData.hormoneTherapy=hormoneTherapy;
     formData.tel=document.getElementById('tel').value.trim();
+    formData.occupation=document.getElementById('occupation').value.trim();
+    formData.address=document.getElementById('address').value.trim();
     formData.age=calcAge();
     formData.visitType=visitType || '初診';
     formData.previousSubmissionId=revisitRecord && revisitRecord.submissionId ? revisitRecord.submissionId : '';
@@ -1527,6 +1560,7 @@ function showConfirm(){
     ['生年月日',bdDisplay],
     ['年齢（推計）',formData.age!=null?formData.age+'歳':'不明'],
     ['性別',formData.gender+(formData.hormoneTherapy?' / 性別適合ホルモン療法を受けている':'')],['電話番号',formData.tel||'未記入'],
+    ['職業',formData.occupation||'未記入'],['住所',formData.address||'未記入'],
   ];
   container.appendChild(buildConfirmSection('基本情報',basic));
 
@@ -1697,6 +1731,7 @@ function resetClinicalSelections(){
 function backToVisitType(){
   visitType='';
   revisitRecord=null;
+  revisitPatientProfile=null;
   revisitMatches=[];
   revisitSelectedIndexes=[];
   revisitNewComplaint=false;
@@ -1713,6 +1748,7 @@ function startFirstVisit(){
   visitType='初診';
   initialSymptomData={};
   revisitRecord=null;
+  revisitPatientProfile=null;
   revisitMatches=[];
   revisitSelectedIndexes=[];
   revisitNewComplaint=false;
@@ -1727,6 +1763,7 @@ function startFirstVisit(){
 function startRevisit(){
   visitType='再診';
   initialSymptomData={};
+  revisitPatientProfile=null;
   revisitNewComplaint=false;
   revisitNewBodyParts=[];
   skippedClinicalReview=false;
@@ -1774,6 +1811,7 @@ function searchRevisitPatient(){
   }).then(function(data){
     if(!data || !data.ok || !data.patient){
       revisitRecord=null;
+      revisitPatientProfile=null;
       revisitMatches=[];
       revisitSelectedIndexes=[];
       setLookupStatus((data && data.message) || '該当する患者情報が見つかりませんでした。','error');
@@ -1785,6 +1823,7 @@ function searchRevisitPatient(){
     revisitSelectedIndexes=revisitMatches.length ? [0] : [];
     revisitNewBodyParts=[];
     revisitNewComplaint=false;
+    revisitPatientProfile=data.patient;
     document.getElementById('revisitNewComplaintPanel').classList.remove('show');
     revisitRecord=getSelectedRevisitRecords()[0] || data.patient;
     renderRevisitPatientSummary(revisitRecord,revisitMatches);
@@ -1831,14 +1870,16 @@ function loadJsonp(url,params){
 }
 
 function renderRevisitPatientSummary(patient,matches){
-  const f=(patient && patient.formData) || {};
+  const f=(revisitPatientProfile && revisitPatientProfile.formData) || (patient && patient.formData) || {};
   const list=(Array.isArray(matches) && matches.length) ? matches : [patient].filter(Boolean);
   const rows=[
     ['お名前',f.name||''],
     ['ふりがな',f.kana||''],
     ['生年月日',formatBirthDisplayFromFormData(f)],
     ['性別',f.gender||''],
-    ['電話番号',f.tel||'']
+    ['電話番号',f.tel||''],
+    ['職業',f.occupation||''],
+    ['住所',f.address||'']
   ];
   const container=document.getElementById('revisitPatientSummary');
   const patientHtml=rows.map(function(row){
@@ -1863,6 +1904,51 @@ function renderRevisitPatientSummary(patient,matches){
     + patientHtml
     + '<div class="sub-label" style="margin-top:var(--space-4)">今回気になる部位</div>'
     + visitHtml;
+  configureRevisitMissingProfile(f);
+}
+
+function configureRevisitMissingProfile(f){
+  const occupation=String((f&&f.occupation)||'').trim();
+  const address=String((f&&f.address)||'').trim();
+  const panel=document.getElementById('revisitMissingProfilePanel');
+  const occupationWrap=document.getElementById('revisitOccupationWrap');
+  const addressWrap=document.getElementById('revisitAddressWrap');
+  const occupationInput=document.getElementById('revisitOccupation');
+  const addressInput=document.getElementById('revisitAddress');
+  const occupationMissing=!occupation;
+  const addressMissing=!address;
+  panel.classList.toggle('show',occupationMissing||addressMissing);
+  occupationWrap.style.display=occupationMissing?'block':'none';
+  addressWrap.style.display=addressMissing?'block':'none';
+  occupationInput.value=occupation;
+  addressInput.value=address;
+  clearError('err-revisit-occupation');
+  clearError('err-revisit-address');
+}
+
+function completeRevisitProfile(records){
+  const profileForm=(revisitPatientProfile&&revisitPatientProfile.formData)||{};
+  let occupation=String(profileForm.occupation||'').trim();
+  let address=String(profileForm.address||'').trim();
+  let ok=true;
+  if(!occupation){
+    occupation=document.getElementById('revisitOccupation').value.trim();
+    if(!occupation){showError('err-revisit-occupation');ok=false;}else clearError('err-revisit-occupation');
+  }
+  if(!address){
+    address=document.getElementById('revisitAddress').value.trim();
+    if(!address){showError('err-revisit-address');ok=false;}else clearError('err-revisit-address');
+  }
+  if(!ok) return false;
+  profileForm.occupation=occupation;
+  profileForm.address=address;
+  if(revisitPatientProfile) revisitPatientProfile.formData=profileForm;
+  records.filter(Boolean).forEach(function(record){
+    if(!record.formData) record.formData={};
+    record.formData.occupation=occupation;
+    record.formData.address=address;
+  });
+  return true;
 }
 
 function selectRevisitRecord(index,checked){
@@ -1979,7 +2065,9 @@ function confirmRevisitPatient(){
   if(combinedNames.size>5){showError('err-revisit-combined');return;}
   const sourceItem=(revisitMatches&&revisitMatches[0])||revisitRecord;
   const sourceRecord=sourceItem&&(sourceItem.latestRecord||sourceItem);
-  applyRevisitRecords(selectedRecords.length?selectedRecords:[sourceRecord]);
+  const recordsToApply=selectedRecords.length?selectedRecords:[sourceRecord];
+  if(!completeRevisitProfile(recordsToApply)) return;
+  applyRevisitRecords(recordsToApply);
   if(!selectedRecords.length){
     selectedBodyParts=[];
     symptomData={};
@@ -2097,6 +2185,8 @@ function setBasicFieldsFromFormData(f){
   hormoneTherapy=!!f.hormoneTherapy;
   document.getElementById('hormoneTherapy').checked=hormoneTherapy;
   document.getElementById('tel').value=f.tel||'';
+  document.getElementById('occupation').value=f.occupation||'';
+  document.getElementById('address').value=f.address||'';
   setClinicalFieldsFromFormData(f);
   updatePregnancyVisibility();
 }
@@ -2244,6 +2334,8 @@ function downloadExcel(){
     ['年齢（推計）',formData.age!=null?formData.age+'歳':'不明'],
     ['性別',formData.gender+(formData.hormoneTherapy?' / 性別適合ホルモン療法を受けている':'')],
     ['電話番号',formData.tel||''],
+    ['職業',formData.occupation||''],
+    ['住所',formData.address||''],
     ['',''],
     ['気になる部位（優先順位順）',selectedBodyParts.map((p,i)=>'①②③④⑤'[i]+' '+p.name+(p.otherText?'（'+p.otherText+'）':'')).join(' / ')],
   ];
